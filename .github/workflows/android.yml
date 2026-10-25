@@ -95,8 +95,17 @@ jobs:
       - name: Name the APK
         run: |
           mkdir -p out
-          f=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
-          cp "$f" out/RupsWallet.apk
+          echo "--- build output folders ---"
+          find android -type d -path "*build/outputs*" 2>/dev/null || true
+          echo "--- apk files ---"
+          find . -name "*.apk" -type f 2>/dev/null || true
+          APK=$(find . -name "*.apk" -type f -not -path "./out/*" 2>/dev/null | head -n 1 || true)
+          if [ -z "$APK" ]; then
+            echo "ERROR: no APK was produced. Look above for the Gradle log."
+            exit 1
+          fi
+          echo "Using $APK"
+          cp "$APK" out/RupsWallet.apk
           ls -la out
 
       - uses: actions/upload-artifact@v4
