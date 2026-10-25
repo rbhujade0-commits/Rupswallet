@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+def ks = System.getenv("KEYSTORE_FILE")
+
+android {
+    namespace 'com.rupswallet.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.rupswallet.app"
+        minSdk 29
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        if (ks) {
+            release {
+                storeFile file(ks)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ks) { signingConfig signingConfigs.release }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.biometric:biometric:1.1.0'
+}

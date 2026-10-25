@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#050A1C</color>
+    <style name="Theme.RupsWallet" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:statusBarColor">#0A0C14</item>
+        <item name="android:navigationBarColor">#0A0C14</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

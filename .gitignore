@@ -1,0 +1,19 @@
+node_modules/
+.DS_Store
+*.log
+.netlify/
+*.keystore
+
+# Android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/www/
+
+# Android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/www/

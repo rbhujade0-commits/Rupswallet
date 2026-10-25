@@ -1,0 +1,87 @@
+# Builds an installable APK on GitHub. Run it from: Actions > "Build Android APK" > Run workflow
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']          # pushing a tag like v1.0 also publishes a GitHub Release with the APK
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Copy web app into the APK
+        run: |
+          mkdir -p android/app/src/main/assets/www
+          cp index.html manifest.webmanifest android/app/src/main/assets/www/
+          cp -r icons android/app/src/main/assets/www/
+
+      - name: Bundle libraries so the app also opens offline
+        working-directory: android/app/src/main/assets/www
+        run: |
+          mkdir -p lib
+          V=10.12.2
+          for f in app auth firestore; do
+            curl -fsSL "https://www.gstatic.com/firebasejs/$V/firebase-$f-compat.js" -o "lib/firebase-$f-compat.js"
+          done
+          curl -fsSL https://unpkg.com/react@18.3.1/umd/react.production.min.js -o lib/react.js
+          curl -fsSL https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js -o lib/react-dom.js
+          sed -i \
+            -e "s#https://www.gstatic.com/firebasejs/$V/#lib/#g" \
+            -e 's#https://unpkg.com/react@18.3.1/umd/react.production.min.js#lib/react.js#' \
+            -e 's#https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js#lib/react-dom.js#' \
+            index.html
+          grep -o '<script[^>]*src="[^"]*"' index.html
+
+      - name: Decode signing key (if you added secrets)
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android
+        run: gradle --no-daemon assembleRelease
+
+      - name: Build debug APK (no signing key set)
+        if: env.HAS_KEYSTORE != 'true'
+        working-directory: android
+        run: gradle --no-daemon assembleDebug
+
+      - name: Name the APK
+        run: |
+          mkdir -p out
+          f=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          cp "$f" out/RupsWallet.apk
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RupsWallet-apk
+          path: out/RupsWallet.apk
+
+      - name: Publish GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/RupsWallet.apk

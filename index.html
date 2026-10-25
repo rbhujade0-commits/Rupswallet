@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c14">
+<title>RupsWallet</title>
+<meta name="application-name" content="RupsWallet">
+<meta name="apple-mobile-web-app-title" content="RupsWallet">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* =====================================================================
+   FIREBASE CONFIG  -  paste YOUR values here (Firebase console >
+   Project settings > General > Your apps > Web app > SDK config).
+   Until you do, the app runs in "local only" mode like before.
+   ===================================================================== */
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyAEu89BJxD1yqWX9k4rms4ycFvTk3KbOKU",
+  authDomain:"personal-expense-e1f7c.firebaseapp.com",
+  projectId:"personal-expense-e1f7c",
+  storageBucket:"personal-expense-e1f7c.firebasestorage.app",
+  messagingSenderId:"646989884839",
+  appId:"1:646989884839:web:d0509c1cd2228ca0321a82"
+};
+/* Firebase only works on http(s) pages (e.g. your Netlify URL), not a downloaded file (file:// or content://) */
+window.CLOUD=!!FIREBASE_CONFIG.apiKey&&!/^PASTE/.test(FIREBASE_CONFIG.apiKey)&&/^https?:$/.test(location.protocol)&&typeof firebase!=='undefined';
+if(window.CLOUD){
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    window.db=firebase.firestore();
+    window.db.enablePersistence({synchronizeTabs:true}).catch(function(){});
+  }catch(e){window.CLOUD=false;console.error(e);}
+}
+/* show any startup error on screen instead of a blank page */
+window.addEventListener('error',function(ev){
+  if(document.getElementById('root')&&document.getElementById('root').children.length)return;
+  var d=document.getElementById('errbox')||document.body.appendChild(document.createElement('div'));
+  d.id='errbox';d.style.cssText='position:fixed;left:12px;right:12px;bottom:12px;z-index:999;padding:12px 14px;border-radius:12px;background:#2a1216;color:#ffb3bf;font:13px/1.4 system-ui;word-break:break-word';
+  d.textContent='Startup error: '+(ev.message||'unknown')+' (check internet connection and reload)';
+});
+</script>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<style>
+:root{
+  --bg:#0a0c14;--ink:#f3f4fb;--muted:#9aa3b9;--faint:#6b7489;
+  --glass:rgba(255,255,255,.065);--glass-2:rgba(255,255,255,.1);--stroke:rgba(255,255,255,.14);
+  --accent:#ffd93d;--accent-2:#ffb938;--green:#34d399;--red:#fb7185;--blue:#818cf8;
+  --ease:cubic-bezier(.22,.8,.3,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:15px/1.5 'Outfit',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow-x:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+::selection{background:rgba(255,217,61,.3)}
+
+/* ---------- animated backdrop ---------- */
+.backdrop{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(ellipse at 20% 0%,#161a33 0%,#0a0c14 55%)}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.38;animation:drift 18s ease-in-out infinite alternate}
+.orb.o1{width:420px;height:420px;background:#4f46e5;left:-120px;top:-100px}
+.orb.o2{width:380px;height:380px;background:#f59e0b;right:-100px;top:25%;animation-duration:22s;opacity:.22}
+.orb.o3{width:340px;height:340px;background:#0ea5a4;left:30%;bottom:-160px;animation-duration:26s;opacity:.26}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(70px,50px,0) scale(1.2)}}
+
+/* ---------- glass primitives ---------- */
+.glass{position:relative;background:var(--glass);border:1px solid var(--stroke);border-radius:22px;backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);box-shadow:0 12px 40px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.14)}
+.hover-lift{transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s}
+.hover-lift:hover{transform:translateY(-3px);border-color:rgba(255,217,61,.35);box-shadow:0 18px 46px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.2)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:14px;font-weight:600;transition:transform .2s var(--ease),filter .2s,background .2s,box-shadow .25s;white-space:nowrap}
+.btn:hover{transform:translateY(-2px)}.btn:active{transform:translateY(1px) scale(.98)}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#1d1700;box-shadow:0 8px 24px rgba(255,185,56,.28)}
+.btn.primary:hover{box-shadow:0 12px 30px rgba(255,185,56,.4)}
+.btn.ghost{background:var(--glass-2);border:1px solid var(--stroke);color:var(--ink)}
+.btn.ghost:hover{background:rgba(255,255,255,.16)}
+.btn.danger{background:rgba(251,113,133,.14);border:1px solid rgba(251,113,133,.3);color:#ffb3bf}
+.btn.sm{padding:7px 11px;border-radius:11px;font-size:13px}
+.btn:disabled{opacity:.6;pointer-events:none}
+
+.field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.field>label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.input,.select{width:100%;padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.28);border:1px solid var(--stroke);outline:0;transition:border-color .2s,box-shadow .25s,background .2s;min-width:0}
+.input::placeholder{color:var(--faint)}
+.input:focus,.select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,217,61,.14);background:rgba(0,0,0,.4)}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%239aa3b9' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m1 1 5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.select option{background:#151827;color:#f3f4fb}
+input[type=date]{color-scheme:dark}
+
+/* ---------- LOCK SCREEN ---------- */
+.lock{position:fixed;inset:0;z-index:100;display:grid;grid-template-columns:1.05fr 1fr;align-items:center;gap:20px;padding:24px clamp(16px,5vw,70px);background:radial-gradient(ellipse at 28% 60%,#17130a 0%,#0a0907 55%,#050505 100%);overflow:hidden;transition:opacity .6s var(--ease),transform .6s var(--ease),filter .6s}
+.lock.leaving{opacity:0;transform:scale(1.04);filter:blur(10px);pointer-events:none}
+.room-glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 60% at 28% 62%,rgba(255,200,70,.2),transparent 70%);opacity:0;transition:opacity 1s ease}
+.lock.lit .room-glow{opacity:1}
+.firefly{position:absolute;border-radius:50%;background:#ffe27a;box-shadow:0 0 10px 3px rgba(255,226,122,.7);opacity:0;animation:fly var(--dur) ease-in-out var(--delay) infinite;pointer-events:none}
+@keyframes fly{0%{opacity:0;transform:translate(0,0)}20%{opacity:.85}50%{opacity:.3;transform:translate(var(--dx),var(--dy))}80%{opacity:.9}100%{opacity:0;transform:translate(calc(var(--dx)*-.6),calc(var(--dy)*-1.2))}}
+.lock:not(.lit) .firefly{filter:brightness(.5)}
+
+.lamp-wrap{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:0;z-index:2}
+.lamp-svg{width:min(460px,100%);max-height:80vh;overflow:visible;user-select:none}
+.cone{opacity:0;transition:opacity .9s ease}
+.lit .cone,.lit .bulb{opacity:1}
+.bulb{opacity:.15;transition:opacity .6s}
+.lit .lamp-svg .shade-in{fill:#ffe9a8}
+.lamp-svg .shade-in{fill:#2a2418;transition:fill .6s}
+.lit .cone{animation:flick .7s steps(1) 1}
+@keyframes flick{0%{opacity:0}15%{opacity:.9}25%{opacity:.2}40%{opacity:1}55%{opacity:.5}100%{opacity:1}}
+.cord{cursor:pointer;outline:0}
+.cord .bead{transition:fill .3s}
+.cord:hover .bead,.cord:focus-visible .bead{fill:#fff2b8}
+.cord.pull{animation:pull .55s var(--ease)}
+@keyframes pull{0%{transform:translateY(0)}35%{transform:translateY(20px)}100%{transform:translateY(0)}}
+.lamp-hint{margin-top:6px;font-size:13px;color:#b9a56b;letter-spacing:.06em;text-align:center;transition:opacity .5s}
+.lit .lamp-hint{opacity:.5}
+.lamp-hint b{animation:pulse 1.8s ease-in-out infinite;display:inline-block}
+@keyframes pulse{50%{opacity:.35}}
+
+.login-card{position:relative;z-index:3;width:min(440px,100%);justify-self:center;padding:34px 30px 28px;border-radius:28px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.14);opacity:.18;filter:blur(3px) brightness(.7);transform:translateY(14px) scale(.98);pointer-events:none;transition:opacity .9s var(--ease),filter .9s var(--ease),transform .9s var(--ease)}
+.lit .login-card{opacity:1;filter:none;transform:none;pointer-events:auto}
+.login-card.shake{animation:shake .45s}
+@keyframes shake{20%,60%{transform:translateX(-9px)}40%,80%{transform:translateX(9px)}}
+.login-card h1{margin:0;text-align:center;font-size:30px;font-weight:700;letter-spacing:-.02em}
+.login-card .sub{margin:6px 0 24px;text-align:center;color:#b3b0a2;font-size:14px}
+.lfield{position:relative;margin-bottom:14px}
+.lfield .ico{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#8b8576;pointer-events:none;display:flex}
+.lfield input{width:100%;padding:15px 44px 15px 46px;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.42);outline:0;box-shadow:inset 0 3px 8px rgba(0,0,0,.5);transition:border-color .25s,box-shadow .25s}
+.lfield input::placeholder{color:#7e786a}
+.lfield input:focus{border-color:rgba(255,217,61,.7);box-shadow:inset 0 3px 8px rgba(0,0,0,.5),0 0 0 4px rgba(255,217,61,.12)}
+.lfield .eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);padding:6px;color:#8b8576;display:flex;border-radius:8px}
+.lfield .eye:hover{color:#ffe27a}
+.signin{width:100%;margin-top:6px;padding:15px;border-radius:16px;font-weight:700;font-size:16px;color:#241c00;background:linear-gradient(135deg,#ffe45c,#ffc933);box-shadow:0 10px 28px rgba(255,201,51,.28);transition:transform .2s var(--ease),box-shadow .25s}
+.signin:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(255,201,51,.42)}
+.signin:active{transform:scale(.98)}.signin:disabled{opacity:.6}
+.or{display:flex;align-items:center;gap:12px;margin:22px 0 16px;color:#8d8778;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.or:before,.or:after{content:"";flex:1;height:1px;background:rgba(255,255,255,.12)}
+.alt{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.alt button{padding:12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#d8d4c6;font-weight:500;font-size:14px;transition:background .2s,transform .2s}
+.alt button:hover{background:rgba(255,255,255,.12);transform:translateY(-2px)}
+.lerr{min-height:20px;margin:2px 2px 8px;color:#ff9aa8;font-size:13px;text-align:center}
+.lnote{margin-top:16px;text-align:center;font-size:12px;color:#8d8778}
+.resetask{margin-top:14px;padding:14px;border-radius:14px;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.25);font-size:13px;color:#ffc2cb;text-align:center}
+.resetask div{display:flex;gap:8px;justify-content:center;margin-top:10px}
+@media(max-width:820px){
+  .lock{grid-template-columns:1fr;grid-template-rows:38vh auto;align-content:start;padding:14px 16px 24px;overflow-y:auto;gap:4px}
+  .lamp-svg{max-height:34vh}
+  .login-card{padding:26px 20px 22px;margin-top:6px}
+  .login-card h1{font-size:26px}
+}
+
+/* ---------- APP SHELL ---------- */
+.shell{max-width:1120px;margin:0 auto;padding:20px 16px 110px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;margin-bottom:16px;animation:rise .7s var(--ease) both}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.logo{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;flex:0 0 46px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#201800;box-shadow:0 8px 22px rgba(255,185,56,.32)}
+.brand h1{margin:0;font-size:clamp(19px,3.4vw,26px);letter-spacing:-.03em;font-weight:750;line-height:1.15}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+.tabs{position:sticky;top:10px;z-index:30;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:6px;margin-bottom:18px;border-radius:20px}
+.tab{position:relative;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 8px;border-radius:15px;color:var(--muted);font-weight:600;transition:color .25s,background .25s,transform .25s var(--ease)}
+.tab:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+.tab.active{color:#1f1800}
+@media(max-width:700px){
+  .tabs{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));top:auto;margin:0;border-radius:22px;background:rgba(18,20,32,.72)}
+  .tab{flex-direction:column;gap:3px;font-size:12px;padding:9px 4px}
+}
+.page{animation:pageIn .5s var(--ease) both;display:grid;gap:16px}
+@keyframes pageIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+.panel{padding:24px}
+.panel h2{margin:0 0 16px;font-size:19px;font-weight:700;letter-spacing:-.02em}
+.form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+@media(max-width:820px){.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.form-grid{grid-template-columns:1fr}.panel{padding:18px}}
+
+.topline{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.topline h2{margin:0}
+.pill{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:700;color:var(--accent);background:rgba(255,217,61,.1);border:1px solid rgba(255,217,61,.25)}
+.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media(max-width:820px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.filters{grid-template-columns:1fr}}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.total-line{font-weight:700;font-size:16px}
+.list{display:grid;gap:10px;margin-top:14px}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);transition:background .25s,transform .3s var(--ease),border-color .25s;animation:rise .45s var(--ease) backwards}
+.item:hover{background:rgba(255,255,255,.085);transform:translateX(3px);border-color:rgba(255,255,255,.18)}
+.badge{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-weight:800;font-size:17px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.item .title{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .meta{color:var(--muted);font-size:12.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.amt{font-weight:750;font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.amt.inv{color:var(--green)}
+.item .acts{display:flex;gap:6px;opacity:.9}
+.iconbtn{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--glass-2);border:1px solid var(--stroke);color:var(--muted);transition:color .2s,background .2s,transform .2s}
+.iconbtn:hover{color:var(--ink);transform:translateY(-2px);background:rgba(255,255,255,.18)}
+.iconbtn.del:hover{color:#ffb3bf;background:rgba(251,113,133,.2)}
+.empty{text-align:center;color:var(--muted);padding:34px 12px;border:1px dashed rgba(255,255,255,.16);border-radius:18px;margin-top:14px}
+.note{margin-top:14px;font-size:12.5px;color:var(--muted);line-height:1.6}
+
+/* dashboard */
+.section-head{display:flex;align-items:center;gap:14px;margin:6px 4px 12px}
+.section-head .ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:var(--glass-2);border:1px solid var(--stroke);color:var(--accent)}
+.section-head small{display:block;color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.16em}
+.section-head h2{margin:2px 0 0;font-size:21px;letter-spacing:-.03em}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.cards.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:700px){
+  .cards,.cards.two{grid-template-columns:1fr 1fr;gap:10px}
+  .cards>.metric-card:nth-child(3):last-child{grid-column:1/-1}
+  .metric-card{padding:14px 14px 13px}
+  .metric-card .lbl{font-size:12px;gap:6px}
+  .metric-card .val{font-size:clamp(18px,5.6vw,24px);margin-top:6px}
+  .metric-card .sub{font-size:11px;margin-top:2px}
+  .section-head{margin:2px 2px 10px}.section-head .ic{width:36px;height:36px}.section-head h2{font-size:18px}
+  .page{gap:14px}
+}
+.metric-card{position:relative;overflow:hidden;padding:20px;animation:rise .6s var(--ease) backwards}
+.metric-card:before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:var(--bar,linear-gradient(90deg,#818cf8,#38bdf8))}
+.metric-card .lbl{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 22%,transparent)}
+.metric-card .val{font-size:clamp(24px,4vw,31px);font-weight:750;letter-spacing:-.04em;margin-top:10px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.metric-card .sub{font-size:12px;color:var(--faint);margin-top:4px}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.compare{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:700px){.compare{grid-template-columns:1fr}}
+.cbox{padding:18px;border-radius:18px;border:1px solid var(--stroke);background:rgba(255,255,255,.04);transition:transform .3s var(--ease)}
+.cbox:hover{transform:translateY(-3px)}
+.cbox.g{background:linear-gradient(150deg,rgba(52,211,153,.16),rgba(52,211,153,.03));border-color:rgba(52,211,153,.3)}
+.cbox.r{background:linear-gradient(150deg,rgba(251,113,133,.16),rgba(251,113,133,.03));border-color:rgba(251,113,133,.3)}
+.cbox .t{font-size:13px;color:var(--muted);font-weight:600}
+.cbox .v{font-size:clamp(22px,3.4vw,28px);font-weight:750;letter-spacing:-.04em;margin:6px 0 2px}
+.cbox .s{font-size:12px;color:var(--faint)}
+.meter{height:8px;border-radius:99px;background:rgba(255,255,255,.1);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),#6ee7b7);transition:width 1s var(--ease)}
+.charts{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}
+@media(max-width:820px){.charts{grid-template-columns:1fr}}
+.charts h3{margin:0 0 10px;font-size:15px;color:var(--muted);font-weight:600}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:8px}
+.legend span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:var(--c)}
+svg.chart{width:100%;height:auto;display:block;overflow:visible}
+.bar{transform-box:fill-box;transform-origin:bottom;animation:grow .9s var(--ease) both;transition:opacity .2s}
+.bar:hover{opacity:.75}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.catrow{display:grid;grid-template-columns:110px 1fr 56px;gap:10px;align-items:center;margin-bottom:12px;font-size:13px}
+.catrow .name{display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catrow .name i{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
+.catrow .track{height:10px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.catrow .track b{display:block;height:100%;border-radius:99px;transition:width .9s var(--ease)}
+.catrow .v{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* toast + modal */
+.toast{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);z-index:200;padding:12px 20px;border-radius:99px;font-weight:600;font-size:14px;animation:toast 2.4s var(--ease) both;pointer-events:none}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,16px)}12%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,8px)}}
+@media(min-width:701px){.toast{bottom:36px}}
+.modal-bg{position:fixed;inset:0;z-index:150;display:grid;place-items:center;padding:20px;background:rgba(3,4,10,.6);backdrop-filter:blur(6px);animation:fade .25s both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{width:min(400px,100%);padding:26px;animation:pop .35s var(--ease) both}
+@keyframes pop{from{opacity:0;transform:scale(.92) translateY(10px)}to{opacity:1;transform:none}}
+.modal h3{margin:0 0 8px;font-size:19px}.modal p{margin:0 0 20px;color:var(--muted)}
+.modal .row-actions{justify-content:flex-end;margin:0}
+
+
+/* ---------- extra glass + motion ---------- */
+.glass:after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(280px circle at var(--mx,50%) var(--my,-30%),rgba(255,255,255,.13),transparent 62%);opacity:0;transition:opacity .4s}
+.glass:hover:after{opacity:1}
+.tabs:before{content:"";position:absolute;top:6px;bottom:6px;left:calc(6px + var(--i,0)*((100% - 24px)/3 + 6px));width:calc((100% - 24px)/3);border-radius:15px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 8px 22px rgba(255,185,56,.32);transition:left .55s var(--ease)}
+.tab{overflow:hidden}
+.btn,.signin,.iconbtn{position:relative;overflow:hidden}
+.ripple{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.42);transform:scale(0);animation:ripple .65s ease-out forwards}
+@keyframes ripple{to{transform:scale(1);opacity:0}}
+.btn.primary:before,.signin:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.5),transparent 70%);transform:translateX(-120%);animation:sheen 3.8s ease-in-out infinite}
+@keyframes sheen{0%,55%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+.logo{animation:bob 4.5s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-3px) rotate(-4deg)}}
+.ring{position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,.08)}
+.ring.r1{width:520px;height:520px;right:-180px;top:12%;animation:spin 60s linear infinite}
+.ring.r2{width:300px;height:300px;left:-90px;bottom:14%;animation:spin 44s linear infinite reverse}
+.ring:after{content:"";position:absolute;top:-5px;left:50%;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 18px 4px rgba(255,217,61,.5)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.page>*{animation:rise .65s var(--ease) backwards}
+.page>*:nth-child(2){animation-delay:.07s}.page>*:nth-child(3){animation-delay:.14s}.page>*:nth-child(4){animation-delay:.21s}.page>*:nth-child(5){animation-delay:.28s}.page>*:nth-child(6){animation-delay:.35s}.page>*:nth-child(7){animation-delay:.42s}
+.ovbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;padding:14px 16px}
+.ovbar .select{padding:11px 28px 11px 11px;font-size:14px;background-position:right 10px center}
+.fpbtn{padding:9px 11px}
+.fpbtn.on{color:var(--green);border-color:rgba(52,211,153,.5);box-shadow:0 0 18px rgba(52,211,153,.28)}
+.topbar .acts2{display:flex;gap:8px;flex:0 0 auto}
+.login-card{overflow:hidden}
+.login-card:after{content:"";position:absolute;inset:-1px;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.07) 50%,transparent 60%);transform:translateX(-100%);animation:sheen 6.5s ease-in-out infinite}
+.signrow{display:flex;gap:10px;margin-top:6px}
+.signrow .signin{margin-top:0;flex:1;width:auto}
+.fp{position:relative;flex:0 0 54px;width:54px;height:54px;border-radius:16px;display:grid;place-items:center;color:#ffe27a;background:rgba(255,217,61,.1);border:1px solid rgba(255,217,61,.35);transition:transform .2s var(--ease),background .25s,box-shadow .3s}
+.fp:hover{transform:translateY(-2px);background:rgba(255,217,61,.18);box-shadow:0 0 22px rgba(255,217,61,.3)}
+.fp:before{content:"";position:absolute;inset:-1px;border-radius:inherit;border:1px solid rgba(255,217,61,.55);pointer-events:none;animation:ringpulse 2.2s ease-out infinite}
+@keyframes ringpulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.4);opacity:0}}
+.fp.scan{background:rgba(255,217,61,.22);box-shadow:0 0 26px rgba(255,217,61,.45)}
+.fp.scan svg{animation:pulse .9s ease-in-out infinite}
+.fp.scan:after{content:"";position:absolute;left:8px;right:8px;height:2px;border-radius:2px;background:#ffe27a;box-shadow:0 0 10px #ffe27a;animation:scanline 1s ease-in-out infinite alternate}
+@keyframes scanline{from{top:9px}to{top:43px}}
+.lerr.info{color:#ffe27a}
+.syncpill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--muted);padding:0 11px;border-radius:999px;background:var(--glass-2);border:1px solid var(--stroke);white-space:nowrap}
+.syncpill i{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+.syncpill.synced i{background:var(--green);box-shadow:0 0 8px var(--green)}
+.syncpill.pending i,.syncpill.loading i{background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
+.syncpill.offline i,.syncpill.error i{background:var(--red)}
+@media(max-width:600px){.syncpill .t{display:none}.syncpill{padding:0 9px}}
+.alt.three{grid-template-columns:1fr 1fr 1fr}.alt.three button{padding:12px 6px;font-size:13px}
+
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* ===== performance (smoother on 90/120 Hz phones) ===== */
+.orb{filter:none!important;will-change:transform;opacity:.55}
+.orb.o1{background:radial-gradient(circle,#4f46e5 0%,transparent 68%)}
+.orb.o2{background:radial-gradient(circle,#f59e0b 0%,transparent 68%);opacity:.3}
+.orb.o3{background:radial-gradient(circle,#0ea5a4 0%,transparent 68%);opacity:.34}
+.glass{backdrop-filter:blur(12px) saturate(140%);-webkit-backdrop-filter:blur(12px) saturate(140%)}
+@media(max-width:700px){.glass{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}}
+.btn.primary:before,.signin:before{animation-duration:5s}
+.page>*,.item,.metric-card{backface-visibility:hidden}
+/* ===== bouncy motion ===== */
+:root{--ease:cubic-bezier(.34,1.56,.64,1);--spring:cubic-bezier(.34,1.56,.64,1)}
+@keyframes rise{0%{opacity:0;transform:translateY(38px) scale(.94)}55%{opacity:1;transform:translateY(-8px) scale(1.015)}78%{transform:translateY(3px) scale(.998)}100%{opacity:1;transform:none}}
+@keyframes pageIn{0%{opacity:0;transform:translateY(26px) scale(.97)}60%{opacity:1;transform:translateY(-6px)}100%{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.55) translateY(20px)}60%{opacity:1;transform:scale(1.07)}80%{transform:scale(.98)}100%{transform:none}}
+@keyframes popin{0%{opacity:0;transform:scale(.72) translateY(20px)}60%{opacity:1;transform:scale(1.04)}100%{opacity:1;transform:none}}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,46px) scale(.8)}10%{opacity:1;transform:translate(-50%,-10px) scale(1.06)}18%{transform:translate(-50%,2px) scale(.99)}24%{transform:translate(-50%,0) scale(1)}85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,10px)}}
+@keyframes grow{0%{transform:scaleY(0)}70%{transform:scaleY(1.08)}100%{transform:scaleY(1)}}
+.item{animation:popin .55s var(--spring) backwards}
+.item:hover{transform:translateX(6px) scale(1.01)}
+.btn:active,.signin:active,.fp:active,.iconbtn:active{transform:scale(.9)!important}
+.tab:active{transform:scale(.86)}
+.metric-card:hover,.cbox:hover{transform:translateY(-5px) scale(1.025)}
+.logo{animation:bounceLogo 2.6s var(--spring) infinite}
+@keyframes bounceLogo{0%,100%{transform:translateY(0)}18%{transform:translateY(-7px) scale(1.06)}36%{transform:translateY(0) scale(.97)}50%{transform:none}}
+.syncpill i{transition:transform .4s var(--spring)}
+/* ===== lock screen: fingerprint-only once registered ===== */
+.forced .lfield,.forced .signin{display:none}
+.forced .signrow{justify-content:center;margin:14px 0 6px}
+.forced .fp{flex:0 0 96px;width:96px;height:96px;border-radius:30px}
+.forced .fp svg{width:46px;height:46px}
+
+/* ===== v3: smoother + more motion ===== */
+/* cheaper glass: only the header and tab bar blur; panels use a solid translucent fill */
+.page .glass{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(22,24,40,.72)}
+.page>*,.item,.metric-card,.cbox,.catrow{contain:layout style}
+.item{content-visibility:auto;contain-intrinsic-size:auto 68px}
+html{-webkit-tap-highlight-color:transparent;scroll-behavior:smooth;overscroll-behavior-y:none}
+button,.tab,.item,.btn{touch-action:manipulation}
+/* staggered list / chart entrances */
+.item:nth-child(1){animation-delay:.02s}.item:nth-child(2){animation-delay:.06s}.item:nth-child(3){animation-delay:.10s}.item:nth-child(4){animation-delay:.14s}.item:nth-child(5){animation-delay:.18s}.item:nth-child(6){animation-delay:.22s}.item:nth-child(7){animation-delay:.26s}.item:nth-child(n+8){animation-delay:.3s}
+.catrow{animation:slideIn .55s var(--spring) backwards}
+.catrow:nth-child(1){animation-delay:.05s}.catrow:nth-child(2){animation-delay:.1s}.catrow:nth-child(3){animation-delay:.15s}.catrow:nth-child(4){animation-delay:.2s}.catrow:nth-child(5){animation-delay:.25s}.catrow:nth-child(n+6){animation-delay:.3s}
+@keyframes slideIn{0%{opacity:0;transform:translateX(-30px)}60%{opacity:1;transform:translateX(6px)}100%{transform:none}}
+.bar:nth-child(2n){animation-delay:.05s}.bar:nth-child(3n){animation-delay:.1s}.bar:nth-child(5n){animation-delay:.15s}
+.metric-card:nth-child(1){animation-delay:.02s}.metric-card:nth-child(2){animation-delay:.1s}.metric-card:nth-child(3){animation-delay:.18s}
+.metric-card .val{animation:valPop .8s var(--spring) .25s backwards}
+@keyframes valPop{0%{opacity:0;transform:scale(.5)}100%{opacity:1;transform:none}}
+/* tab icon bounce + wobble on the active tab */
+.tab.active svg{animation:iconPop .7s var(--spring)}
+@keyframes iconPop{0%{transform:scale(.4) rotate(-25deg)}55%{transform:scale(1.35) rotate(8deg)}100%{transform:none}}
+/* inputs: spring focus */
+.input,.select,select,input[type=date]{transition:transform .35s var(--spring),box-shadow .3s,border-color .3s,background .3s}
+.input:focus,select:focus,input[type=date]:focus{transform:scale(1.015);box-shadow:0 0 0 3px rgba(255,201,51,.22),0 8px 24px rgba(0,0,0,.25)}
+.field label{transition:color .3s,transform .35s var(--spring);transform-origin:left}
+.field:focus-within label{color:var(--accent);transform:translateX(4px) scale(1.04)}
+/* primary button: glow pulse + press jelly */
+.btn.primary{animation:glowPulse 3.2s ease-in-out infinite}
+@keyframes glowPulse{0%,100%{box-shadow:0 8px 22px rgba(255,185,56,.28)}50%{box-shadow:0 10px 34px rgba(255,185,56,.55)}}
+.btn.primary:active{animation:jelly .5s var(--spring)}
+@keyframes jelly{0%{transform:scale(.88,1.1)}40%{transform:scale(1.12,.9)}70%{transform:scale(.97,1.03)}100%{transform:none}}
+.btn:hover:not(:active){transform:translateY(-2px) scale(1.04)}
+/* decorative life */
+.empty{animation:floaty 3.4s ease-in-out infinite}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.orb.o1{animation-duration:14s}.orb.o2{animation-duration:17s}.orb.o3{animation-duration:20s}
+.syncpill.synced i{animation:heartbeat 2.4s ease-in-out infinite}
+@keyframes heartbeat{0%,100%{transform:scale(1)}15%{transform:scale(1.5)}30%{transform:scale(1)}}
+.modal{animation:pop .5s var(--spring) both}
+.modal-bg{animation:fade .3s both}
+.topbar .logo{animation:bounceLogo 2.6s var(--spring) infinite}
+@media(hover:none){.btn:hover:not(:active),.item:hover,.metric-card:hover,.cbox:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.brand .logo{background:none!important;box-shadow:0 8px 22px rgba(30,140,255,.35);overflow:hidden;padding:0}
+</style>
+</head>
+<body>
+<div class="backdrop"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="ring r1"></div><div class="ring r2"></div></div>
+<div id="root"></div>
+
+<script>
+"use strict";
+const { useState, useMemo, useEffect, useRef, useCallback } = React;
+/* ---------- constants & helpers ---------- */
+const STORE = 'personalExpenseTracker_v1';
+const AUTH = 'personalExpenseTracker_auth_v1';
+const SESSION = 'personalExpenseTracker_unlocked';
+const CATEGORIES = ['Food', 'Groceries', 'Transport', 'Shopping', 'Bills', 'Home', 'Health', 'Entertainment', 'Travel', 'EMI / Loan', 'Investment', 'Other'];
+const CAT_COLORS = { Food: '#f97316', Groceries: '#84cc16', Transport: '#38bdf8', Shopping: '#ec4899', Bills: '#eab308', Home: '#a78bfa', Health: '#f43f5e', Entertainment: '#8b5cf6', Travel: '#06b6d4', 'EMI / Loan': '#fb7185', Investment: '#34d399', Other: '#94a3b8' };
+const CLOUD = !!window.CLOUD;
+const EMAIL = false; /* false = anonymous Firebase sign-in (no email/password account) */
+const fbAuth = () => firebase.auth();
+const fbMsg = e => {
+    const c = (e && e.code) || '';
+    if (/invalid-email/.test(c))
+        return 'That email address looks wrong.';
+    if (/email-already-in-use/.test(c))
+        return 'An account with this email exists. Use Sign in instead.';
+    if (/weak-password/.test(c))
+        return 'Password must be at least 6 characters.';
+    if (/user-not-found|wrong-password|invalid-credential|invalid-login/.test(c))
+        return 'Email or password is incorrect.';
+    if (/too-many-requests/.test(c))
+        return 'Too many attempts. Wait a minute and try again.';
+    if (/network/.test(c))
+        return 'No internet connection.';
+    return 'Something went wrong. Please try again.';
+};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const money = n => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n || 0);
+const shortMoney = n => n >= 100000 ? '₹' + (n / 100000).toFixed(1) + 'L' : n >= 1000 ? '₹' + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : '₹' + Math.round(n);
+const localDate = d => { const x = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return x.toISOString().slice(0, 10); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const sum = a => a.reduce((t, e) => t + Number(e.amount || 0), 0);
+const isInv = e => String(e.category || '').toLowerCase() === 'investment';
+async function hashText(text) {
+    try {
+        if (window.crypto && crypto.subtle) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+            return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+    }
+    catch (e) { }
+    let h = 5381;
+    for (let i = 0; i < text.length; i++)
+        h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+    return 'f' + h;
+}
+const readJSON = (k, fallback) => { try {
+    const v = localStorage.getItem(k);
+    return v ? JSON.parse(v) : fallback;
+}
+catch (e) {
+    return fallback;
+} };
+const b64e = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64d = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4)
+    s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+/* In the Android APK, window.AndroidBio is a native BiometricPrompt bridge; in a browser we use WebAuthn */
+const bioReady = () => window.AndroidBio ? !!window.AndroidBio.available() : (window.isSecureContext && !!window.PublicKeyCredential && !!navigator.credentials);
+const nativeBio = () => new Promise((res, rej) => {
+    window.__bioDone = (ok, msg) => { ok ? res() : rej(Object.assign(new Error(msg || 'cancelled'), { name: 'NotAllowedError' })); };
+    window.AndroidBio.authenticate();
+});
+/* ---------- icons ---------- */
+const P = {
+    user: React.createElement(React.Fragment, null,
+        React.createElement("circle", { cx: "12", cy: "8", r: "4" }),
+        React.createElement("path", { d: "M4 21c0-4 4-6 8-6s8 2 8 6" })),
+    mail: React.createElement(React.Fragment, null,
+        React.createElement("rect", { x: "3", y: "5", width: "18", height: "14", rx: "2" }),
+        React.createElement("path", { d: "m3 7 9 6 9-6" })),
+    lock: React.createElement(React.Fragment, null,
+        React.createElement("rect", { x: "5", y: "11", width: "14", height: "10", rx: "2" }),
+        React.createElement("path", { d: "M8 11V8a4 4 0 0 1 8 0v3" })),
+    eye: React.createElement(React.Fragment, null,
+        React.createElement("path", { d: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" }),
+        React.createElement("circle", { cx: "12", cy: "12", r: "3" })),
+    eyeoff: React.createElement(React.Fragment, null,
+        React.createElement("path", { d: "M3 3l18 18" }),
+        React.createElement("path", { d: "M10.6 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.6 6.6A17 17 0 0 0 2 12s4 7 10 7a9.700 9.700 0 0 0 4-.9" })),
+    plus: React.createElement("path", { d: "M12 5v14M5 12h14" }),
+    list: React.createElement("path", { d: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" }),
+    chart: React.createElement("path", { d: "M4 20V11M10 20V4M16 20v-7M22 20H2" }),
+    out: React.createElement("path", { d: "M9 21H5V3h4M16 17l5-5-5-5M21 12H9" }),
+    trash: React.createElement("path", { d: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" }),
+    edit: React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16z" }),
+    download: React.createElement("path", { d: "M12 4v12M7 11l5 5 5-5M5 20h14" }),
+    upload: React.createElement("path", { d: "M12 16V4M7 9l5-5 5 5M5 20h14" }),
+    search: React.createElement(React.Fragment, null,
+        React.createElement("circle", { cx: "11", cy: "11", r: "7" }),
+        React.createElement("path", { d: "M20 20l-4-4" })),
+    wallet: React.createElement(React.Fragment, null,
+        React.createElement("path", { d: "M3 7a2 2 0 0 1 2-2h13v4" }),
+        React.createElement("path", { d: "M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z" }),
+        React.createElement("circle", { cx: "16.500", cy: "14.500", r: "1" })),
+    cal: React.createElement(React.Fragment, null,
+        React.createElement("rect", { x: "3", y: "5", width: "18", height: "16", rx: "2" }),
+        React.createElement("path", { d: "M3 10h18M8 3v4M16 3v4" })),
+    trend: React.createElement("path", { d: "M3 17l6-6 4 4 8-9M15 6h6v6" }),
+    fp: React.createElement(React.Fragment, null,
+        React.createElement("path", { d: "M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" }),
+        React.createElement("path", { d: "M14 13.12c0 2.38 0 6.38-1 8.88" }),
+        React.createElement("path", { d: "M17.29 21.02c.12-.6.43-2.3.5-3.02" }),
+        React.createElement("path", { d: "M2 12a10 10 0 0 1 18-6" }),
+        React.createElement("path", { d: "M2 16h.01" }),
+        React.createElement("path", { d: "M21.8 16c.2-2 .131-5.354 0-6" }),
+        React.createElement("path", { d: "M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" }),
+        React.createElement("path", { d: "M8.65 22c.21-.66.45-1.32.57-2" }),
+        React.createElement("path", { d: "M9 6.8a6 6 0 0 1 9 5.2v2" }))
+};
+const Icon = ({ n, s = 18 }) => React.createElement("svg", { viewBox: "0 0 24 24", width: s, height: s, fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }, P[n]);
+/* ---------- LOCK SCREEN ---------- */
+function Fireflies() {
+    const flies = useMemo(() => Array.from({ length: 30 }, (_, i) => ({
+        left: Math.random() * 100, top: Math.random() * 100, size: 2 + Math.random() * 3.5,
+        dur: 6 + Math.random() * 9, delay: -Math.random() * 12, dx: (Math.random() - .5) * 120, dy: (Math.random() - .5) * 120
+    })), []);
+    return React.createElement(React.Fragment, null, flies.map((f, i) => React.createElement("span", { key: i, className: "firefly", style: { left: f.left + '%', top: f.top + '%', width: f.size, height: f.size, '--dur': f.dur + 's', '--delay': f.delay + 's', '--dx': f.dx + 'px', '--dy': f.dy + 'px' } })));
+}
+function Lamp({ lit, onPull, pulling }) {
+    return (React.createElement("svg", { className: "lamp-svg", viewBox: "0 0 400 460", role: "img", "aria-label": "Table lamp with a pull cord" },
+        React.createElement("defs", null,
+            React.createElement("linearGradient", { id: "beam", x1: "0", y1: "0", x2: "0", y2: "1" },
+                React.createElement("stop", { offset: "0", stopColor: "#ffe08a", stopOpacity: ".62" }),
+                React.createElement("stop", { offset: ".55", stopColor: "#ffc94d", stopOpacity: ".22" }),
+                React.createElement("stop", { offset: "1", stopColor: "#ffb938", stopOpacity: ".02" })),
+            React.createElement("radialGradient", { id: "floor", cx: ".5", cy: ".5", r: ".5" },
+                React.createElement("stop", { offset: "0", stopColor: "#ffd45e", stopOpacity: ".5" }),
+                React.createElement("stop", { offset: "1", stopColor: "#ffd45e", stopOpacity: "0" })),
+            React.createElement("linearGradient", { id: "shade", x1: "0", y1: "0", x2: "1", y2: "0" },
+                React.createElement("stop", { offset: "0", stopColor: "#0c0c0c" }),
+                React.createElement("stop", { offset: ".45", stopColor: "#262626" }),
+                React.createElement("stop", { offset: "1", stopColor: "#0a0a0a" })),
+            React.createElement("filter", { id: "soft" },
+                React.createElement("feGaussianBlur", { stdDeviation: "6" }))),
+        React.createElement("g", { className: "cone" },
+            React.createElement("polygon", { points: "118,150 282,150 400,430 0,430", fill: "url(#beam)" }),
+            React.createElement("ellipse", { cx: "200", cy: "432", rx: "210", ry: "24", fill: "url(#floor)" })),
+        React.createElement("rect", { x: "196.500", y: "150", width: "7", height: "268", rx: "3.500", fill: "#1c1c1c" }),
+        React.createElement("ellipse", { cx: "200", cy: "424", rx: "54", ry: "9", fill: "#141414" }),
+        React.createElement("ellipse", { cx: "200", cy: "421", rx: "54", ry: "8", fill: "#232323" }),
+        React.createElement("path", { d: "M108 150 Q108 70 200 70 Q292 70 292 150 Z", fill: "url(#shade)" }),
+        React.createElement("path", { d: "M130 100 Q150 78 185 74", stroke: "rgba(255,255,255,.14)", strokeWidth: "3", fill: "none", strokeLinecap: "round" }),
+        React.createElement("ellipse", { className: "shade-in", cx: "200", cy: "150", rx: "92", ry: "9" }),
+        React.createElement("ellipse", { className: "bulb", cx: "200", cy: "152", rx: "40", ry: "8", fill: "#fff0b3", filter: "url(#soft)" }),
+        React.createElement("rect", { x: "192", y: "58", width: "16", height: "14", rx: "4", fill: "#171717" }),
+        React.createElement("g", { className: 'cord' + (pulling ? ' pull' : ''), role: "button", tabIndex: "0", "aria-label": lit ? 'Pull cord to turn the lamp off' : 'Pull cord to turn the lamp on', onClick: onPull, onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onPull();
+            } } },
+            React.createElement("rect", { x: "246", y: "146", width: "40", height: "110", fill: "transparent" }),
+            React.createElement("line", { x1: "266", y1: "150", x2: "266", y2: "222", stroke: "#c9b27a", strokeWidth: "2.500" }),
+            React.createElement("rect", { className: "bead", x: "259", y: "222", width: "14", height: "30", rx: "7", fill: "#e0c46e" }),
+            React.createElement("rect", { x: "262", y: "226", width: "3", height: "20", rx: "1.500", fill: "rgba(255,255,255,.4)" }))));
+}
+function LockScreen({ onUnlock, fbUser }) {
+    const stored = useMemo(() => readJSON(AUTH, null), []);
+    const [auth, setAuth] = useState(stored);
+    const [mode, setMode] = useState(stored ? 'signin' : 'create');
+    const creating = EMAIL ? mode === 'create' : !auth;
+    const forcedBio = !creating && !!(auth && auth.bio) && bioReady();
+    const [lit, setLit] = useState(false);
+    const [pulling, setPulling] = useState(false);
+    const [leaving, setLeaving] = useState(false);
+    const [f, setF] = useState({ user: '', email: (stored && stored.email) || '', pass: '' });
+    const [info, setInfo] = useState(false);
+    const [show, setShow] = useState(false);
+    const [err, setErr] = useState('');
+    const [shake, setShake] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [resetAsk, setResetAsk] = useState(false);
+    const [scanning, setScanning] = useState(false);
+    const pull = () => { setPulling(true); setTimeout(() => setPulling(false), 560); setTimeout(() => setLit(v => !v), 180); };
+    const fail = m => { setInfo(false); setErr(m); setShake(true); setTimeout(() => setShake(false), 480); setBusy(false); };
+    const set = k => e => { setF({ ...f, [k]: e.target.value }); setErr(''); };
+    const enrollBio = async () => {
+        const a = readJSON(AUTH, null);
+        if (!a || a.bio || !bioReady())
+            return;
+        try {
+            if (window.AndroidBio) {
+                await nativeBio();
+                a.bio = 'android';
+                localStorage.setItem(AUTH, JSON.stringify(a));
+                return;
+            }
+            const cred = await navigator.credentials.create({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: 'Wallet' }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: a.user, displayName: a.user }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }], authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000 } });
+            a.bio = b64e(cred.rawId);
+            localStorage.setItem(AUTH, JSON.stringify(a));
+        }
+        catch (e) { }
+    };
+    const finish = async (name) => {
+        if (!forcedBio)
+            await enrollBio();
+        try {
+            sessionStorage.setItem(SESSION, '1');
+        }
+        catch (_) { }
+        setLeaving(true);
+        setTimeout(() => onUnlock(name), 550);
+    };
+    const fingerprint = async () => {
+        if (!auth || scanning)
+            return;
+        if (!bioReady())
+            return fail('Fingerprint needs the page opened from https:// or localhost, not as a downloaded file.');
+        if (EMAIL && !fbUser)
+            return fail('Sign in with your password once on this device first.');
+        if (!auth.bio)
+            return fail('Sign in once, then switch on the fingerprint button in the Wallet header.');
+        try {
+            setErr('');
+            setScanning(true);
+            if (window.AndroidBio)
+                await nativeBio();
+            else
+                await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: 'public-key', id: b64d(auth.bio), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } });
+            setScanning(false);
+            finish(auth.user);
+        }
+        catch (e) {
+            setScanning(false);
+            fail(e && e.name === 'NotAllowedError' ? 'Fingerprint was cancelled or not recognised.' : 'Fingerprint unlock isn’t available here.');
+        }
+    };
+    const submit = async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        if (EMAIL) {
+            const user = f.user.trim(), email = f.email.trim();
+            if (creating && !user)
+                return fail('Please enter a username.');
+            if (!email)
+                return fail('Please enter your email.');
+            if (f.pass.length < 6)
+                return fail('Password must be at least 6 characters.');
+            try {
+                let cred;
+                if (creating) {
+                    cred = await fbAuth().createUserWithEmailAndPassword(email, f.pass);
+                    await cred.user.updateProfile({ displayName: user });
+                }
+                else
+                    cred = await fbAuth().signInWithEmailAndPassword(email, f.pass);
+                const name = cred.user.displayName || user || email.split('@')[0];
+                const prev = readJSON(AUTH, null);
+                const rec = { user: name, email, ...(prev && prev.email === email && prev.bio ? { bio: prev.bio } : {}) };
+                try {
+                    localStorage.setItem(AUTH, JSON.stringify(rec));
+                }
+                catch (_) { }
+                setAuth(rec);
+                finish(name);
+            }
+            catch (er) {
+                fail(fbMsg(er));
+            }
+            return;
+        }
+        const user = f.user.trim();
+        if (!user)
+            return fail('Please enter a username.');
+        if (creating) {
+            if (f.pass.length < 4)
+                return fail('Choose a password with at least 4 characters.');
+            const salt = uid();
+            const rec = { user, email: f.email.trim(), salt, hash: await hashText(salt + f.pass) };
+            try {
+                localStorage.setItem(AUTH, JSON.stringify(rec));
+            }
+            catch (_) {
+                return fail('Could not save in this browser.');
+            }
+            setAuth(rec);
+        }
+        else {
+            const h = await hashText(auth.salt + f.pass);
+            if (user.toLowerCase() !== auth.user.toLowerCase() || h !== auth.hash)
+                return fail('Username or password is incorrect.');
+        }
+        finish(creating ? user : auth.user);
+    };
+    const forgot = async () => {
+        const email = f.email.trim() || (auth && auth.email) || '';
+        if (!email)
+            return fail('Type your email above first.');
+        try {
+            await fbAuth().sendPasswordResetEmail(email);
+            setInfo(true);
+            setErr('Reset link sent to ' + email);
+        }
+        catch (er) {
+            fail(fbMsg(er));
+        }
+    };
+    const doReset = () => { try {
+        localStorage.removeItem(AUTH);
+        localStorage.removeItem(STORE);
+    }
+    catch (_) { } location.reload(); };
+    return (React.createElement("div", { className: 'lock' + (lit ? ' lit' : '') + (leaving ? ' leaving' : '') },
+        React.createElement("div", { className: "room-glow" }),
+        React.createElement(Fireflies, null),
+        React.createElement("div", { className: "lamp-wrap" },
+            React.createElement(Lamp, { lit: lit, pulling: pulling, onPull: pull }),
+            React.createElement("div", { className: "lamp-hint" }, lit ? 'Pull the cord again to switch off' : React.createElement(React.Fragment, null,
+                React.createElement("b", null, "\u25CF"),
+                " Pull the cord to light up"))),
+        React.createElement("form", { className: 'login-card' + (shake ? ' shake' : '') + (forcedBio ? ' forced' : ''), onSubmit: submit, autoComplete: "off", "aria-hidden": !lit },
+            React.createElement("h1", null, creating ? (EMAIL ? 'Create Your Account' : 'Create Your Lock') : 'Welcome Back'),
+            React.createElement("p", { className: "sub" }, creating ? (EMAIL ? 'Sign up once, then your expenses sync on every device' : 'Set a username and password to protect your expenses') : (forcedBio ? 'Tap the fingerprint icon to unlock' : 'Enter your details to access your account')),
+            (!EMAIL || creating) && React.createElement("div", { className: "lfield" },
+                React.createElement("span", { className: "ico" },
+                    React.createElement(Icon, { n: "user" })),
+                React.createElement("input", { placeholder: "Username", value: f.user, onChange: set('user'), autoComplete: "username", tabIndex: lit ? 0 : -1 })),
+            (EMAIL || creating) && React.createElement("div", { className: "lfield" },
+                React.createElement("span", { className: "ico" },
+                    React.createElement(Icon, { n: "mail" })),
+                React.createElement("input", { type: "email", autoComplete: "email", placeholder: EMAIL ? 'Email Address' : 'Email Address (optional)', value: f.email, onChange: set('email'), tabIndex: lit ? 0 : -1 })),
+            React.createElement("div", { className: "lfield" },
+                React.createElement("span", { className: "ico" },
+                    React.createElement(Icon, { n: "lock" })),
+                React.createElement("input", { type: show ? 'text' : 'password', placeholder: "Password", value: f.pass, onChange: set('pass'), autoComplete: creating ? 'new-password' : 'current-password', tabIndex: lit ? 0 : -1 }),
+                React.createElement("button", { type: "button", className: "eye", onClick: () => setShow(!show), "aria-label": "Show or hide password", tabIndex: -1 },
+                    React.createElement(Icon, { n: show ? 'eyeoff' : 'eye', s: 18 }))),
+            React.createElement("div", { className: 'lerr' + ((info || (!err && scanning)) ? ' info' : ''), role: "alert" }, err || (scanning ? 'Touch the fingerprint sensor…' : '')),
+            React.createElement("div", { className: "signrow" },
+                React.createElement("button", { className: "signin", disabled: busy, tabIndex: lit ? 0 : -1 }, busy ? 'Please wait…' : creating ? 'Create & Unlock' : 'Sign In'),
+                !creating && React.createElement("button", { type: "button", className: 'fp' + (scanning ? ' scan' : ''), onClick: fingerprint, "aria-label": "Unlock with fingerprint", title: "Unlock with fingerprint", tabIndex: lit ? 0 : -1 },
+                    React.createElement(Icon, { n: "fp", s: 26 }))),
+            creating ? (EMAIL ? React.createElement("div", { className: "lnote" },
+                "Already registered? ",
+                React.createElement("button", { type: "button", style: { color: '#ffe27a', textDecoration: 'underline' }, onClick: () => { setMode('signin'); setErr(''); }, tabIndex: lit ? 0 : -1 }, "Sign in")) : React.createElement("div", { className: "lnote" }, CLOUD ? 'Your password stays on this device. Expenses back up to your private cloud.' : 'Your data and password stay on this device only.')) : EMAIL ? React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "or" }, "Need help?"),
+                React.createElement("div", { className: "alt three" },
+                    React.createElement("button", { type: "button", onClick: forgot, tabIndex: lit ? 0 : -1 }, "Forgot password"),
+                    React.createElement("button", { type: "button", onClick: () => { setMode('create'); setErr(''); }, tabIndex: lit ? 0 : -1 }, "New account"),
+                    React.createElement("button", { type: "button", onClick: pull, tabIndex: lit ? 0 : -1 }, "Lights off"))) : React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "or" }, "Need help?"),
+                React.createElement("div", { className: "alt" },
+                    React.createElement("button", { type: "button", onClick: () => setResetAsk(true), tabIndex: lit ? 0 : -1 }, "Forgot password"),
+                    React.createElement("button", { type: "button", onClick: pull, tabIndex: lit ? 0 : -1 }, "Lights off"))),
+            resetAsk && React.createElement("div", { className: "resetask" },
+                CLOUD ? 'Resetting removes the login on this device. Your synced expenses stay safe in the cloud.' : 'Resetting erases the login and ALL saved expenses on this device. This can’t be undone.',
+                React.createElement("div", null,
+                    React.createElement("button", { type: "button", className: "btn danger sm", onClick: doReset }, "Erase & reset"),
+                    React.createElement("button", { type: "button", className: "btn ghost sm", onClick: () => setResetAsk(false) }, "Cancel"))))));
+}
+/* ---------- Dashboard pieces ---------- */
+function BarChart({ spend, invest }) {
+    const W = 640, H = 270, L = 54, R = 8, T = 14, B = 34, pw = W - L - R, ph = H - T - B;
+    const max = Math.max(...spend, ...invest, 1), gap = pw / 12, bw = gap * .3;
+    return (React.createElement("svg", { className: "chart", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Monthly spending and investment bar chart" },
+        [0, 1, 2, 3, 4].map(i => { const y = T + ph * i / 4; return React.createElement("g", { key: i },
+            React.createElement("line", { x1: L, x2: W - R, y1: y, y2: y, stroke: "rgba(255,255,255,.09)" }),
+            React.createElement("text", { x: L - 8, y: y + 4, textAnchor: "end", fontSize: "11", fill: "#8a93a8" }, shortMoney(max * (1 - i / 4)))); }),
+        spend.map((v, i) => {
+            const x = L + i * gap + (gap - bw * 2 - 4) / 2, h1 = v / max * (ph - 2), h2 = invest[i] / max * (ph - 2);
+            return React.createElement("g", { key: i },
+                v > 0 && React.createElement("rect", { className: "bar", style: { animationDelay: i * 40 + 'ms' }, x: x, y: T + ph - h1, width: bw, height: h1, rx: "4", fill: "#818cf8" },
+                    React.createElement("title", null,
+                        FULL_MONTHS[i],
+                        " spending: ",
+                        money(v))),
+                invest[i] > 0 && React.createElement("rect", { className: "bar", style: { animationDelay: i * 40 + 60 + 'ms' }, x: x + bw + 4, y: T + ph - h2, width: bw, height: h2, rx: "4", fill: "#34d399" },
+                    React.createElement("title", null,
+                        FULL_MONTHS[i],
+                        " invested: ",
+                        money(invest[i]))),
+                React.createElement("text", { x: L + i * gap + gap / 2, y: H - 12, textAnchor: "middle", fontSize: "11", fill: "#8a93a8" }, MONTHS[i]));
+        })));
+}
+function Num({ v, fmt = money }) {
+    const [d, setD] = useState(0), from = useRef(0);
+    useEffect(() => {
+        const s = from.current, t0 = performance.now(), dur = 850;
+        let raf;
+        const step = ts => { const p = Math.min(1, (ts - t0) / dur), e = 1 - Math.pow(1 - p, 3), val = s + (v - s) * e; from.current = val; setD(val); if (p < 1)
+            raf = requestAnimationFrame(step); };
+        raf = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(raf);
+    }, [v]);
+    return React.createElement(React.Fragment, null, fmt(d));
+}
+function Metric({ label, value, sub, color, bar, cls, delay = 0 }) {
+    return React.createElement("div", { className: "glass metric-card hover-lift", style: { '--bar': bar, animationDelay: delay + 'ms' } },
+        React.createElement("div", { className: "lbl" },
+            color && React.createElement("span", { className: "dot", style: { '--c': color } }),
+            label),
+        React.createElement("div", { className: 'val ' + (cls || '') }, value),
+        React.createElement("div", { className: "sub" }, sub));
+}
+/* ---------- APP ---------- */
+function App({ user, userId, onLock, onSignOut }) {
+    const now = new Date(), yearNow = now.getFullYear();
+    const CK = CLOUD ? STORE + '_' + userId : STORE;
+    const [expenses, setExpenses] = useState(() => { const d = readJSON(CK, CLOUD ? [] : readJSON(STORE, [])); return Array.isArray(d) ? d : []; });
+    const [sync, setSync] = useState(CLOUD ? 'loading' : 'local');
+    const synced = useRef(new Map()), cloudReady = useRef(false);
+    const [tab, setTab] = useState('add');
+    const emptyForm = () => ({ date: localDate(new Date()), description: '', category: 'Food', amount: '', notes: '' });
+    const [form, setForm] = useState(emptyForm);
+    const [editId, setEditId] = useState(null);
+    const [flt, setFlt] = useState({ from: '', to: '', cat: 'all', q: '' });
+    const [chartYear, setChartYear] = useState(yearNow);
+    const [viewMonth, setViewMonth] = useState('all');
+    const [toast, setToast] = useState(null);
+    const [ask, setAsk] = useState(null);
+    const fileRef = useRef();
+    const [ovMode, setOvMode] = useState('month');
+    const [ovMonth, setOvMonth] = useState(now.getMonth());
+    const [ovYear, setOvYear] = useState(yearNow);
+    const [bio, setBio] = useState(() => !!(readJSON(AUTH, null) || {}).bio);
+    useEffect(() => { try {
+        localStorage.setItem(CK, JSON.stringify(expenses));
+    }
+    catch (e) { } }, [expenses]);
+    /* ---- Firebase: live listener (cloud -> device) ---- */
+    const colRef = () => db.collection('users').doc(userId).collection('expenses');
+    useEffect(() => {
+        if (!CLOUD)
+            return;
+        const unsub = colRef().onSnapshot({ includeMetadataChanges: true }, snap => {
+            const list = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+            synced.current = new Map(list.map(e => [e.id, sig(e)]));
+            let merged = list;
+            if (!cloudReady.current) {
+                /* first load: one-time import of old on-device data from before sync existed */
+                const legacy = readJSON(STORE, null);
+                if (Array.isArray(legacy) && legacy.length) {
+                    const have = new Set(list.map(e => e.id));
+                    merged = [...list, ...legacy.filter(e => e && e.id && !have.has(e.id))];
+                    try {
+                        localStorage.removeItem(STORE);
+                    }
+                    catch (_) { }
+                    if (merged.length > list.length)
+                        say('Imported ' + (merged.length - list.length) + ' expenses to the cloud');
+                }
+                cloudReady.current = true;
+            }
+            merged.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+            setExpenses(merged);
+            setSync(!navigator.onLine ? 'offline' : snap.metadata.hasPendingWrites ? 'pending' : 'synced');
+        }, err => { setSync('error'); say(err && err.code === 'permission-denied' ? 'Sync blocked: check Firestore rules' : 'Sync error'); });
+        const off = () => setSync('offline'), on = () => setSync('pending');
+        window.addEventListener('offline', off);
+        window.addEventListener('online', on);
+        return () => { unsub(); window.removeEventListener('offline', off); window.removeEventListener('online', on); };
+    }, [userId]);
+    /* ---- Firebase: push local changes (device -> cloud) ---- */
+    useEffect(() => {
+        if (!CLOUD || !cloudReady.current)
+            return;
+        const ops = [], cur = new Set();
+        expenses.forEach(e => { cur.add(e.id); const s = sig(e); if (synced.current.get(e.id) !== s) {
+            ops.push(['set', e]);
+            synced.current.set(e.id, s);
+        } });
+        [...synced.current.keys()].forEach(id => { if (!cur.has(id)) {
+            ops.push(['del', id]);
+            synced.current.delete(id);
+        } });
+        if (!ops.length)
+            return;
+        setSync(navigator.onLine ? 'pending' : 'offline');
+        for (let i = 0; i < ops.length; i += 400) {
+            const b = db.batch();
+            ops.slice(i, i + 400).forEach(([k, v]) => { if (k === 'set') {
+                const { id, ...rest } = v;
+                b.set(colRef().doc(String(id)), rest);
+            }
+            else
+                b.delete(colRef().doc(String(v))); });
+            b.commit().catch(() => { setSync('error'); say('Could not sync. Will retry when online.'); });
+        }
+    }, [expenses]);
+    const sig = e => JSON.stringify(Object.keys(e).filter(k => k !== 'id').sort().map(k => [k, e[k]]));
+    const say = m => { setToast({ m, k: Date.now() }); };
+    const toggleBio = async () => {
+        const a = readJSON(AUTH, null);
+        if (!a)
+            return;
+        if (a.bio) {
+            delete a.bio;
+            try {
+                localStorage.setItem(AUTH, JSON.stringify(a));
+            }
+            catch (_) { }
+            setBio(false);
+            say('Fingerprint unlock turned off');
+            return;
+        }
+        if (!bioReady())
+            return say('Fingerprint needs https:// or localhost');
+        try {
+            const cred = await navigator.credentials.create({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: 'Wallet' }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: a.user, displayName: a.user }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }], authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000 } });
+            a.bio = b64e(cred.rawId);
+            localStorage.setItem(AUTH, JSON.stringify(a));
+            setBio(true);
+            say('Fingerprint unlock enabled');
+        }
+        catch (e) {
+            say('Fingerprint setup was cancelled');
+        }
+    };
+    useEffect(() => { if (!toast)
+        return; const t = setTimeout(() => setToast(null), 2400); return () => clearTimeout(t); }, [toast]);
+    useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [tab]);
+    const years = useMemo(() => [...new Set([yearNow, ...expenses.map(e => Number(e.date.slice(0, 4)))])].sort((a, b) => b - a), [expenses, yearNow]);
+    const filtered = useMemo(() => {
+        const q = flt.q.trim().toLowerCase();
+        return expenses.filter(e => (!flt.from || e.date >= flt.from) && (!flt.to || e.date <= flt.to) && (flt.cat === 'all' || e.category === flt.cat) && (!q || e.description.toLowerCase().includes(q) || String(e.notes || '').toLowerCase().includes(q)))
+            .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
+    }, [expenses, flt]);
+    const stats = useMemo(() => {
+        const mp = `${yearNow}-${String(now.getMonth() + 1).padStart(2, '0')}`, yp = String(yearNow), td = localDate(now);
+        const allM = expenses.filter(e => e.date.startsWith(mp)), allY = expenses.filter(e => e.date.startsWith(yp)), allD = expenses.filter(e => e.date === td);
+        const m = allM.filter(e => !isInv(e)), mi = allM.filter(isInv), y = allY.filter(e => !isInv(e)), yi = allY.filter(isInv), d = allD.filter(e => !isInv(e));
+        const months = new Set(y.map(e => e.date.slice(0, 7)));
+        const spend = sum(y), invest = sum(yi), out = spend + invest;
+        return { m, mi, y, yi, d, mS: sum(m), mI: sum(mi), yS: spend, yI: invest, yOut: out, dS: sum(d), avg: months.size ? spend / months.size : 0, months: months.size, ratio: out ? invest / out * 100 : 0 };
+    }, [expenses]);
+    const ov = useMemo(() => {
+        const pre = ovMode === 'month' ? `${ovYear}-${String(ovMonth + 1).padStart(2, '0')}` : String(ovYear);
+        const all = expenses.filter(e => e.date.startsWith(pre)), sp = all.filter(e => !isInv(e)), iv = all.filter(isInv);
+        return { sp, iv, S: sum(sp), I: sum(iv) };
+    }, [expenses, ovMode, ovMonth, ovYear]);
+    const periodLabel = ovMode === 'month' ? `${FULL_MONTHS[ovMonth]} ${ovYear}` : (ovYear === yearNow ? `Year-to-date ${ovYear}` : `Year ${ovYear}`);
+    const ovRatio = (ov.S + ov.I) ? ov.I / (ov.S + ov.I) * 100 : 0;
+    const trend = useMemo(() => {
+        const s = Array(12).fill(0), i = Array(12).fill(0);
+        expenses.filter(e => Number(e.date.slice(0, 4)) === Number(chartYear)).forEach(e => { const k = Number(e.date.slice(5, 7)) - 1; (isInv(e) ? i : s)[k] += Number(e.amount); });
+        return { s, i };
+    }, [expenses, chartYear]);
+    const cats = useMemo(() => {
+        const g = {};
+        expenses.filter(e => Number(e.date.slice(0, 4)) === Number(chartYear) && !isInv(e) && (viewMonth === 'all' || Number(e.date.slice(5, 7)) - 1 === Number(viewMonth))).forEach(e => g[e.category] = (g[e.category] || 0) + Number(e.amount));
+        return Object.entries(g).sort((a, b) => b[1] - a[1]);
+    }, [expenses, chartYear, viewMonth]);
+    const submit = e => {
+        e.preventDefault();
+        const amount = Number(form.amount), description = form.description.trim();
+        if (!description || !Number.isFinite(amount) || amount <= 0)
+            return;
+        const rec = { date: form.date, description, category: form.category, amount };
+        if (editId) {
+            setExpenses(list => list.map(x => x.id === editId ? { ...x, ...rec } : x));
+            say('Changes saved');
+        }
+        else {
+            setExpenses(list => [...list, { id: uid(), createdAt: Date.now(), ...rec }]);
+            say('Expense added');
+        }
+        setEditId(null);
+        setForm(emptyForm());
+    };
+    const startEdit = x => { setEditId(x.id); setForm({ date: x.date, description: x.description, category: x.category, amount: String(x.amount), notes: x.notes || '' }); setTab('add'); };
+    const cancelEdit = () => { setEditId(null); setForm(emptyForm()); };
+    const delOne = x => setAsk({ title: 'Delete this expense?', msg: `“${x.description}” · ${money(x.amount)}`, yes: () => { setExpenses(l => l.filter(i => i.id !== x.id)); say('Expense deleted'); } });
+    const delAll = () => expenses.length && setAsk({ title: 'Delete ALL expenses?', msg: CLOUD ? 'Everything will be removed from this device AND your cloud account. Back up first if you may need it.' : 'Everything will be removed from this device. Back up first if you may need it.', yes: () => { setExpenses([]); cancelEdit(); say('All expenses deleted'); } });
+    const download = (blob, name) => { if (window.AndroidBio && window.AndroidBio.saveFile) {
+        blob.text().then(t => window.AndroidBio.saveFile(name, blob.type || 'text/plain', t));
+        return;
+    } const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+    const exportCsv = () => {
+        const rows = [['Date', 'Description', 'Category', 'Amount (INR)', 'Notes'], ...filtered.map(e => [e.date, e.description, e.category, e.amount, e.notes || ''])];
+        download(new Blob(['\ufeff' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' }), 'expenses.csv');
+        say('CSV exported');
+    };
+    const backup = () => { download(new Blob([JSON.stringify(expenses, null, 2)], { type: 'application/json' }), 'expense-backup.json'); say('Backup saved'); };
+    const restore = async (ev) => {
+        const file = ev.target.files[0];
+        ev.target.value = '';
+        if (!file)
+            return;
+        try {
+            const data = JSON.parse(await file.text());
+            if (!Array.isArray(data) || !data.every(e => e.date && e.description && Number(e.amount) > 0))
+                throw Error('bad');
+            setAsk({ title: `Import ${data.length} expenses?`, msg: 'This replaces your current data.', yes: () => { setExpenses(data.map(e => ({ ...e, amount: Number(e.amount), id: e.id || uid(), createdAt: e.createdAt || Date.now() }))); say('Backup restored'); } });
+        }
+        catch (_) {
+            say('That backup file is not valid');
+        }
+    };
+    const TABS = [['add', 'plus', 'Add Expense'], ['list', 'list', 'Expenses'], ['dash', 'chart', 'Dashboard']];
+    return (React.createElement("div", { className: "shell" },
+        React.createElement("header", { className: "glass topbar" },
+            React.createElement("div", { className: "brand" },
+                React.createElement("div", { className: "logo" },
+                    React.createElement("img", { alt: "", src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHAAAABwCAIAAABJgmMcAAA79klEQVR42oW9eaAkVXU//jn3VlUvr986773Z2dEBBAIiqEEBUTQKKm4xbjGKJl8RTOKWRI3JT40ao6jxa+L6FYxLFCXGFXfBsAiyOGwzwLDMDAyzvHl7d1Xde87vj3ur6lZ3j3nTPPr1665Xdeqcc8/5nM85l9T4SQABBIKACHDfACqeACD418U/R/Arcj8KAECh+pL6O8ufqHou7sAk/qf+X9VOoDw3AfzJFofrOwKVH1DuNSJ3OcQMCMH/U+Ku3UuAIOWFu+MokCIiqSRA1XWRl1t4qpEAgFBxEVLIVSClgP0n/HGKMw8lJcUhSaoL9pdVEwyEgvf4I4t4CRViKj4kxY8oT1P6/6gTpRRaQABIBCACgUhAYo1Ij8EKmlRLkSJhgEhEKmlCVboiBHcDhP0NRyHT8MJFQAAXt5UEAk2Ntf4Wg6iUq39OhY5SXVmoX9eC9xAFl00DGur+lJe4OCEVf8VL0Z1ZoOblD1zcMwEEIsVtKd7jbpUSpQGCNczLOS/bpKk2nzR+xB9MJp18YXfOhlUMsPsgl2eC8raG51woO3n1kNBUynNzGghCVIm8Zu3+TSJOpqE+CupmWZqXhIrs/zaBJLBlcUctJUXBnZba/a/rNQLFD8/XHY28cSulRMRkgh4DaE03Nj91/PHnrj3mD6cnjmxInBub7bxh5duX3rO8L1cNLYLA3t3BFcDeCkU5oxZxwiw9jH+xEIMqjQUCotGTQCBFNdWTutsq7U4QuJLAxmrWHrgJQc1m0Sd/CbS47+CCIV9U3g0qjkMKRMQMm1l0GZpGN7UPe/Kao8+Z2nj66MThLSTIejbvWmtzRaqzLtp+9f6rXrEdsSoMmYgIUEKKoIpzUiAvF3F/o/Cz3p9IcaqhSRIikLj1yAvEPe/TkZoBhm922qUkFLczzEp2ldp69yhS6WMp0uomM/oXpsLTkZTyJwUAnLNdNjBCI/Gaozobzlhz+NmzG04ba69PAMm75uCSIRFSAIF0bEXmduUbnza97im7H/n5fDQWCwMgUcp7aOdtnIhEgZzOWoiCUlKaXeXcQxsBhCJ/owVwxgkmUN3xib9a8QKqrzTBqhf4u0JeFLxJpFBYkcr1iLhluLgS7xmpsOzqVhApUhCnjD0DkXiqufbU2Q1PXbfhqbOzJ3SaU7FYNr18ac5CRGkipZ1qMTNBCGAhQbzp9KlHfrQPAEQBBBaUjt2tTk7LRImXLNcVExDl5CQS2A8kkmr1dRKlKi6SSjaVbg2sMeEdOsQSL1Le0vqbpfwbEuo4AKZSkkqBIIbtaobMohGPbBqdPXVmw9M3zj5pdvzITtwEpybv5vkBSxAoTaSghCGKq4VLhAkipKxRa04cQ2TEKjCDdBFwSREsKAgLhcaqCyURCKBULfKpDBcRiQgCLwkSAZEUihiI0N80qpxDuQoL1Zfmvvgp8JhBQFt3lMVqIwIiIoKGMHPG0kvBoieaU6esnX3yxtkzN605YU17pqk0c8/0VrLuIitFSmlFmt0Vi5Bw4YwZwsp7CyaRtCujjxtNZpJ8IadYkzcMd9c1IOQPQuWa4/0YF0G3MyERkKp7M0SoxaHFmhLYXCFTqukR0RBxhMu0YCA0L8I+t7iWMWgpWVXcV2NtL0dq0Yham8YnT904+4eHTZ66duzIyWQ0sSblbrY83yOIIlGKoElAImQBCDsnIiACA05fI44paSgdkygm5vFOa+KY9t7r9lHUsCmDcySxbiYiAoiIBSkQAIYApApHVCoYk/MVzlm4q3JiUqMnFsJUZShZLc5BKB+s3IMJTKD8NDT4kerOUbWiuTUWBFjm1CA1UBRNNNuPm5k44/DJpxw2ccJMY2aEiCnNOM3YWqWglCiIBiBM4DKKIYJSpCKimFRE0CAC52yWs96BtLt7YfWBxcUdS4v3zi0+tLC0Y0E4icaTxlTSnh5Z3WOXd6dqVEMIpIuFz91j5VKmKqHygUH528qESY2eGGRaZXBCoe9EqJdDvOcQt3qIV4KAX5EIkBtJcxhL7aR52OTIKYeNnnHE+Mkb2kdMqJGI81R6Pc5SglUkipzsoAEFKAWloSOlG1pHmrQiZunl+UKaPba69ODc0v0Hl++bW9pxcHX3ajqXcmrQiGnNWOOwsc7jZzvHTowdPdrZ0GxPN0ZGIt1N7/zU1m2f26E6DUBX6ROpSqZVOEUECBGVUgaJf2HsxEKNqYya3NtLBa0tJJVQvQlTvz8dlHCQ7YhAK8mNrKTQKlo73tqybuT0I0fPOKp1zLSeSKzkSHNJe2JTwAjlikQrIS06pijROo60ImKR3MqKsXO97NGV7s6F3o75lfsOrD4w1310JV/IYAkjLUx3osOmk2NmG0dNN4+Zbm4aS9Y0ktEoiYQ40zbTbBQbspmK89aE3PLKm/f+fL8ei70HJgUokC7EOqCh7j1BPhRVi3KxTlCVGnq/SaXPk76IyQc93oh9Si51HxGsTgRo4oUVPTvaufC09lMe1zphc7KuoxLFWba6ssKPLEHnoiy0VYlQzBQxIMSiUiNzmd3f5Z1L2YML6YMH0x0HezsX8v1d6eaARrONtWto8+bkiRtGjl6nD5uN1o7Ga9q6HUFDESs2wiY3xs7lKfKY8kjbSEM5R9FlPaonz16z9+pHAOUNXyTIdMtsqhARoXaBBKBMPaUQTxk+0yFi+5pMhcIQczBNrH8MBFlOWxc8aeIvzks2T4FtlqbpwSUhi1gQW2oDgKQZL6/ywWWzZ5F3L9oH581DC2b3ot2zzAe7gAVitMawdloffkJ85rroiE1q41o1M6EmO2gnKiLAChvY3KaG0xzEpFhpUZq1Jq201iAoRm7YasWRKEWKLEwDIIZwleAQFUsTPGgSBtg+EykjUooCH0kEEhGhQFW9VlJxo+rRpoiHbJx+Eqp4g8r1qYztSJZ7yZ88rfXmF2R5nu5bQgxhg7xnFxZpbokPLNpd+/ihvXb3Au9ZtPuWkKYAgBjNEZqepGOPjDatp00b1Pp1tGaSRkdVs0FaEQkJQwyvWnRXmJg0oIWUQAkpBUUkYGbFYAYrJSysWIlWipUoI0qJEga7XF64CHyolrU4MLCABCHiV6QgjIyK1ZaKVbcWjlOI4tQQTucKXP6gAqBoIBT10lSy2ovOOjk+/8zuNXfJ8qrMLfFjC/LYvOxb5AOLspwhzWBTNCIaG1VTG6MjJjA7rdbO0MwMJicxOoaREYpiUYpIiBlixQIQKLDWFEWIFGmCEmgGiSgWJUoJKRHFpC0rK7AiRmymDBMsKaW10oqUABaZZYgFuJAdV8kQiYuWhISExUN8Ln4qY5tSQ6VYqYKVfgApLj4mtVhd8hTMQ1Z2CpZ2Ahjmvt3mr78gB1eQprDiQzxF0BpKIWpgdBwT4zLS4UYTHMueHHseBXaD2UcURFAErYDiiSIoAsQ/UfCvk0CBlECBIqJIUVOrkTiaaiUbJuKNo2oqUSMxuqs2z1VEmomNGJ9ZcYV2QEBOYZVLeCAi5UJUBuwuFRSOgEFgnKiWlUsd+qsnpGzj2TWUJMI2wESCuJRApAgEKMmtJIo2j5NSUuI3LFQkh0qIrMhyiqVUiRCExAfQ5HFEBrgoMPgEgUTgFUaoSHSL+ERcDsSWTdpNV1ZXbboKQrOpT9g88pzj43M363UNvZwxgRmGBe5o3vVJuS759MmZvITmXNQOBCCJaku8FygPBOulI6hn4saoqYnHffPKeGrK5rbAYAcQeiLtbpHH+kSIJIQICYqIiu8eTvI3QbQiTS5AgEPcFKCVF6jTSAiUU98K4xMqXhdhsVbSVFZW7COP7rv1jl1X/2rXr25Z/O1W+sLsyOvOaL/88SZNdU7WuOxIXJopIkQMISEWB/G7g1JYwiixJ4GA1OgJFaBMQ8Dd4Mqlb8mXLI02bjz++z+MO202hY0PIvSHuGNDikYBeCN9IGpQJaBa3BusAlKvgYVxMwEKSiOOkcRoGqRb77j/X//94a//CKDG87Y03/OkZAzpN+9Zet9NarwJJoEi0oCGUkIK0EF9qYo9qXoe+lB3mUIhtE91CIRK86+ctIANjBEjsCxF7Fmt8AM1p1BkZcHKY4xOd6saCIkI1Yp5ZSQRCKyOrFKAVZQItipKZBbIRJaFRankmCcc8blPjT7ru9ve+q70+3fZpRX61Fk2isBCHhwTiECxB/bJqYGG9zwelJUyzCRQtcqXZbAS5aA++CiUjVTlCCmjJA9VV1XQEDiVumRr8qXSOZEQBOyFC6mceX/xSoKCZ5VwEMogrZB+WbGt8m0iUoJ8Pp87iMaLLjhmet29r3uDuWZb76ub9WxC7EI/BpRbjqhyzCL91SDqw5M0NWYKcRSVOe/pK/uqSkBSg47F2mi0M/PKV6ukAQ6uUQrco5A/eV/vH+51t3QLEzOJi6aLNzg/JhbCYIZYsMC9RxjsXndHYAiTe8U9rAs2mdiWb3Cv+L9YZMgKRGY+j487TK3duPSjn/D9y3oisXfuo8hlSiQ+a6+nmNWLZRXE/aMyDvXKGXqeQgELzS08ffkQAGCXJEmJdnLgK8RXFN1BQufolJ/969UvGDVYtTpyoArSV6yj6tBSc6zSRyAoJSBE7OvEJCqyj2YTF16w+MOfLH/3O9nVTA0FdguQULWQi4Ooi5JykCaRl50z/ahWL5caYYAkQNRZ6jG7+HKVc6QM2P4Cvv8wD6lRcSFQSH/ZhKWq2UlQx5MgHJFaecS/QgPYLANE/VUaF1upksxAJFDoyprX/tny1T/gfasq9pdXnBBDOdfDJCSkRATCxaEVFTUyqTKlyrGRFMulyCCcWX6wJk62Uqa/hFp9272F+6ODSsk9nlvGc/71IomViniB8CNUr1XXKy9lrUZKrEHqAQfBkkvfHCanZFmS40+Oj3tCvvU2JM3CT1FxIK4pC0mxgKsSECrJBlHgXamQqQxDRMpVqDJHAsDCDMW+WBkqUSlQt4qLDEP0BMIkoZZJKO4qla5pvQTYQVCBCM6OKkUvZRrQbSq0QUAKsFaPxq2TTsxvvxFoCZh8PF9DfIp1W6TORPAcE1IARSJ9zJDwPtRepKK2UOExblGxYFssO+ExRIRZBLVCXCDx0idz4EMlwMMk4EeIh3VJqmAk/FYL7vqpGQVvQMj7ASdQVlBuwWQRQXTYES5Epqq6xS4vci6KSImwEDwHogqe3NsEhMjZb5ValDc9kE2QijrfHPKSWFhYAFsvkQgQaTWiKfCVvq5V+LWiIulCO+9nQv9QLjsiEANOwXnuo7/AUVGwgqGfR1M54JIm4ktEYUTMYAaaI+6CnHr6b6ooCZW32tsRV5wMcQQZEVERKiN3rCtUBUzyz6UWmqPKaoXhghtbBDql+kWK5w50b/11tRI6BXSLDpHAB3yuxFmuYIwKNhSIctg16XhqbXzUFkx1eAlibHiBHkmU/qqCLyhQP9GNKxwXXNClVOGD/Nu9CUtpi1Vg7kPUPp/irTjqS9Rq1CEJyEdFTFSG/lIuSgzlZFomQsy6pVe237n7r14INIfxGmmAFjlYOaE6CaUVrV/XfM7LJl71NiQtyWxRWXBegmoJWFCTDovXUtI8VGCBHvoArHM5TFLAd1SiJAUVwruCMKSvVTKjIRxOKrCVkFxWxU+eIFellgy2BauP/S20FtAR1BjFIxXeWoEGQ0t7fRTGeuWU2ex5dPmL/9S7/pcTH/5Kc2qtpLYqi4cmJGEtMKBpuKt2vo4JJJUKOrXzmMgA9UoC7mlZCCkCOXK2J8o9U6hV1xzPTAq+pdSC5SqWq61YZTZSewjEpzJlulMsW9V3qSCxMF0I+IoSEEWp0aLOOnP3dYv/8CbLuQR8CWEfzCDMhULPxAIrYBHLsAJmsIgVGI84w0jh7INMQoLzq3KMyi6KS+Dytyq0vTBZlcGCJVWSrf8ZOE/KBmUK6C/Mc4hVkbqVBW5VVGh17XXSA68oKj8rgMmpsz675QerP75Sj2tYG970UqY+HnK/sgxriTRFGrGmOEKs4Z9r95yiBJqEoqKGIwWTROrp2mBVnKV0/xBAoooDWqfJUH0drDMUXZjn/7OWyEJsmaSSE2jAu6RaVF0BWqVt0zD3MsB/KiBtUDP9xX/j/Fc4A3aQSkmNc3FdEeGz6kRawy5mdv4gsyn5CeSRVBCJgiBrYGmedESkoMqEWAL3h4DlSz4KQxWuulOIfEpRZP1V4NxPI8YQ5q6LIi2sAQxC4q1YiO2DM6niIVJYUwy4jwUXnfqSgDBaFoFu5Q/ex/PL1OwgtxSQmaWo+IplnUSqoZZu/GX2i29ld201+3ZJmsNmqEMWFUPEWkDZ5UVAEDdVnNScXhWmcb0MKe7GOL8UFfbbfwlD2Ev9HHf/IhshA/IogdddZSFcMNk861vVJVsjoYXumfrxMSmwSEDIk0byrsp7aHUqsrhUPRNsmVpRurB/+UPvWP3594B9QFO110cbN8TtsUix0koTKRJFpJTSSilhUlBKMaA09u3YuXpwkXQsJaxAlWIKCUnVNRGUdiUaQIDrCHsY4g9wv5zjZgNlAVvplQjgBVoSV1RFlh20+pASHXLNqhKXKjBBXwujzoS0Rh34S6iTIZkp0Ty/d+4dF5odNxHa0WFPi897XfvUZ6qxWd1MohhaI4qgFZSC1nB0B7dG2MzSiF687H0r3/g4jc4Qs/iopiiRexhJauREESLl2Xf9VEQZzqUfiEoKoTgHasrQSIQhpjB5CvKtemlCMBhLVZTgAF6QICdhkEKex487RY02ZCEHtNQ6Q1xAwHPvf6PZcRtRRz/15Z1XfZSSls3By0gX2JGQqsaPgrwEgEXEWNtU2YqmSvPrPid0RNSPN0c4BB2pPzAdQv7yC44w2IAshNzyRg4DZks1YblflQ6LiIQGUm8qSrW+ZEBSL3M5lFfRyHNeCVPQx8NYzbIaj1e+95XstquBKD795a3XfjpfliRnm1uwxEkspNgyBViJpzABCmALHZNhaz3pt8JqAmZOiQ1UpDn33mggXemLmYYU7fr9NJMPAInKErxYhLR+F/cIlcGTq21Vtkp97pvC1BdBvwVk8dGRl76lddpTeNE49RRbgfyANitm5bufB4Gmjowv/CBWhHr53MN71cr8WEsf6CGanh5dP2MtK/LBiDsvIQiRszZ4KEuoCOcLlSxSD68CHLS7FYg9+UR1CK14gBLaz40SEWHxgWdZuWRS7LFi30RCSpSCjkhr+CJSYdUUQE+CGmAvwQlYg6wHsSMv+j8Tf/FerFg4Aoe7nZ6fwJREZsdd5sG7IByd/qeqM45Vu7TtoRdvkb99yZEzY/rOnb23X7Fr2w4zeth6a7iigBdUOzDIuiSfqcDqqcqWQluqJ9UCIkRljj8M9xpWpRMEai8AiVuRbCFi8hxgtqU0CVpTFEs3FZuh2US7TapoUZEim2HPMPD1I//nHDRJemIqPvq4kee+svXkZ/IKsy1xDpT1KFiRJvL7fgczT2osOuocZWR5576nrjdXvvM4d7jDZppbNrVOecf23vxEo90UYXKKWlJDqjS0SJoK4MWHukOISVWRpkZ06C//Sl+yJH20Wa/dXEbypUBJGIW3J9ERWLDaa5x6audZz0pOOimanlFKu4IHMRSLsIABC/LJqni3aIUNCJpGptT4ODPsggVATGXuV2acYoQYMrcHMGiNUmctWbL7l179nAkBsszGkTKWj5xtnLOl/V/3rbQ3t4ylMpwTElLk2HYO/CUImEV5jDNYgqTWFUiVekWCfq7yYPtWJU3pq7dDRDw4YqRkfQhAtrjPWiPL9cy6tW/9m7HnnR+NRNZA8qoaWqbbKCqazF5GHrq2EAPJYRcMWAS6Sti50CEmCMQSDMR65otYSA5YRFr31QsiCDJBDrIVOZmIPBfcgjiolpd8kTIUp8GKhi8cRQXjkOr+a7DPstbPWQX5rjXAQiz5ILGMQ61AaUl70cYjNn36yyNbjpJFtit5gWMXVKUSWygV0xKzgMEGznWIddatKgPnCnaj8pZYSAY1vglIZPWg3b+TJzao0Yn//PX8Rc+ebSQaIkmsHjuYX3NX3hzpcC/snRVSRYOr8YWBEKuqEtBK1VQfMunibSm6bwLgp1+2Ug/ra79jf81gSz4mdQ9WEKE4mX3vZe2jj8r2pGwhosEKVsESDMGSGBJDnBMbklxJriQn5IozBaNgFHKFnCQnzsApJINk4OIhOTgH5+6PkqyCNvwBojHIkr3zW5LT6OT4z7ZHr/uX+7ftXJ1fsb++Y+mF/7hjf2+8lbQ4tZSDclAGlRFloFRUJioHGdsnBam3SPZ1uJPHxSmqQNM+ZtAA+bhePKxq4WygNGDLNd1rKKkI9mDnma+eOPv0/NGeimIxtZY7p55sCwDM34bgu1vuXI26JG6KhwMh/QVBsUpSq2YfHx15urn3av7d13DyX2DN0aOzG/7fr3Z984aHptq0e7/l9uzYzLTtsSaCBTms0vV5WoCgukwm6Kwm6pNJ1cfmWIEF+05IVMCuwaGKnUVBu66wxafKi3dkDWe5bGGNRTS2csPPHvrwl3uLTck1iClSBIJLpYxw7v1j+IDxD8nBuUgONhBDXhkzSA7kgW4W38VAMhZD8dlvAUjSbve/32AP7DVoTBx+NMaPeiTbODJ77Nj4lHRzyoxkBpmRzEpmkeaUWmQWuUim7NwuQB9KQSv+D2qgLkCa4qkhcxf6cyfvGAKoyfXeW2p2kjP/jFQTVnyE45ZsrXn/ruzXX5Gsl//m+6s7Hl3unJFmI9LtwfW8KSIQmCA+lhamUivBSiyJEfaSFTEWVsAkdcfilBdOlw3EKulamjkGqz278xeyciC//7tx5yi0jiAVt1sNKE2ilNbkzkJppbXSWkWR0pq01s3I3PfL5Rs+QlGzwHCqfKT4XnVC1wcFIBomwYEsvoAqBroLCQBbggWVcSiIBWQAC4glHaHZMjd80Tx8s3nFZ7qbTlD3L8WtKBlRcZN0okgX5Z4iQSCGpKucC+J21FRsYK2Pt7kLSXNxfGIOO+8DrNIS0rzxnA+I5fzGj8nCPas/fLmaPjGefTq313KRSVTUVEUAO8sVpGZ+W3r/9yAWKqYQ0Kk1HQWWqhC0cSLqoysOz9qHwr4BDdL7uICj5AzfYyc5U3sKe7eZz7wAL/8kTnputrSULimIZ4T75M95YKUglh/blu+4Xh74De3bJY0Ek4fp6cclR54iG07TnXHkQDeHEERJOQOCfcFCnOizPH7mB9WGJ+c3/Ss/civvvybdf02K//WrCShEo6R0sY4HkGOd+levCBV9sDRy7KGzogEKY3HiPo43GU2sa7/jWhWPwdpgSADTSGzuv2HlY8+mpA1FAiIdiUlhTPyyj8Zn/aksLSulCj57yWd0ZE4SHTGBlh7Jb7vK/OLfMLcdSIBITR2enPjC5LQ/UetPRAZJc5AuB11IwZkSgVgRY9BoETP23WYfuU1WdpIYCBGxWzvLPI4gUSPp7rx99b5rEbWFDbk2R0e4JRoszJQTCooOOwflKqL2MXUDpwF7D+2KffOH+9GkmFg/8tfXUjwG6yF7RRAw2rHZccPqJ86jZKQqeSolIugt6Rf8Y/JHf0mrXXBJACp5lKXnUKIbaEFWe+aaz2bf+2d05xG1YeYRjSYnv6R51jvVmqNk1YqIq2J4p+FOk0VEyDIpLUmkNHTkxed6GpWCVtDa08wbE5j7xdf3/OdrqLHWgYTk5Vj0fVIpWaoEikqmjoCuVTxJw2axDMGWBhNPtmiMxk/6M6ImLPvqtguBtbZzu8yNXyadVDxKZ0NxQ373fUDhxHPIWH9+ioiIlPLEB6WgFIEpzUkn+oQnY8u58vDtMvcAWjNgtrtvyG77JulWtPF0WAVjiYmszzJgQB7cUMRCuaHcIDXIDBmLjJG5Bd09GHnGTKsP3Nzd9iOKRkAgKN/KWalh0bNSibKOT0IBUH2EpFoMXxakDgmTAvArrLsMOFy5XHxpoB+PhURoZMp89//Lv/kudJpQyncHagXtv0MpUqS0ojhWJLScJkee3HznD/Xpf4zuHqgIybT0Vrs/uGTl638sqwdBkWRGDJADLvCyRIbIApbIauKIOILE4IhEwz04gkQkWkQrFTl4wY8X6S8i0NCWjL4oqGgNkyE14wFkZHC0lfiogskrhZNjDjGFQMv39NHRmDEyzT/+aPaffyOdhCIFRaKU+F4jT+AU17RMRFFMWa50q3nxl+Jn/TWyAwRBFCGeye+9avkr5/He7aQSygwswRR314IskfX5GCyR8a+DCZakeJs7W5JaEkS1tYgQNB4P0a2C7q0OweGQcmBMLTAJiXFlzmCrMLB67p7U2pqogo4hxJZGZuxPLsu/8lZ0IooAJVAkilz/jCgIkRBEQQjQmsCUmubr/jm58B8k2+etI17DB+5c/sZ5+c4boRNKczIoH6W8yAaZGFN5hh5mtOAcHhIsA46q8h30aodlGxkyGEQVk7SkJnrp40oMnSZQfPnzJpQXYIDcVSppGKWpeDBTe9b87FPp5X8lrQjaNyE5IVbCL9iH4tR22SQv+7vkZR9GfpBAEItoTLoHVv/7gmzHz0U3kFkYotJigtsMCzIE41IAFwmIGLBX27qLKznOQc9BVVyiEiOqTVhT0scE6We4DvGZ0ucNTJEv2ipr9IF9hUz1ybSgkwjTyKz52f/NvnQp2ho6iCqoCNWDTgYnXVnMkhe9NXnlZZLPk6tD6Lbk2erVL8ru/Q7FCTIjBmKq84EBSlHmxa9sgI5bSNYNGuFLb1pvYqWSyOp5Tn3UGlXxkgMmUb8rrUNNRCGRXSSXIjv0oqxszWtXoGZ9MA0I1tLIWvOLz6SffZM0tKiC8yi1VK2Mh5z9y0KenH9x8upPSr7ozU01IKr7y1em93yF4gS5LW+wPx8jMBDjKU2+dsQkVsSSyZAd3Bl0/BIqRg8NtkQMDEakAmntb00cVj2m31cLpTzoYC6TNVMlowP8ib4hTwRrqT1rrvkCROLXfxositmTmSToNC/JBiBA88E8ec6fE+n0ikugRwkiFAOqe/1FSFcbx74Bae4PQr5kJKogfaqSiSeiCaQkRbb3blAUwp4y9Mqp1EUqJz2WsorQP3GuntHXulyGzQ8RiKnsujIXpxfDnUaIzhY9TMzUWmuv/aJkveTPPy9WI7fkSpF9f7SoPSvRMpclz7oILOl/vFnUuD8sdbq3XMy9lfaWv5TMM54pqMI79qcwWDsCA1Mc2QO78n1bKW6XeJ1UeWe9sdj7qzBmqiYO/h4NLe1U/pcSvYGQQ0SCPx8BdiCUQz0QEarL1KK91t74tczm8Ru/oHQCY0tqrAxOiwCIIj6Qx+e+AUzpV98MNeZvrZpI73obzGp7y98hz32OWVTiwEAx/UIcoayBlQd+xL3HVGsGkCGzUweW+KBlpsZjjgbwD/rf5ttUauvTRVMUqMl3QIGKaLTWF0hSO6fBJlsFa6m91t58paTd5OIvq7hNvRykQ2dejjcpomHFB7LorIsk5+ybl0KN+V+rNen2d5NZbR/3fsmNy7OLyRQkJUcVIpHm1Wz57suhW0F9rcjz+zKi2jg/Knn0RXvqkIG0Uh8gUG8oHOwgFlAuLj9xtQTk4p+bMI/oC4mpNnNIAm6eNdRey1t/mF32El6dRxLDWs/6dOMYrLiA14flhoi1zGXxWW9MLvwkeKFodGBSM70dH1y94+1KRcQEV1hlgIUYsCKWOLMU6eWtn8sP3KriTtBXSv1AJoY1rw+4WlVPhWreUfrG4IT8XQRAviW/sodgu3GFwyCvqmrVQbiMYJxU6eSsofYMb/tl9vEX2uW9aMQwTqZUPHys7tIzsoVMn/7G5PmXgeeLuZ8MNdt76KOrWy9WpMkSWYElH5AyIc9V1Mh337Z42z9RPO67KygIgEMmO/VP3iwtjwIYX1UzXStStqDWSDfoN4PcU1DF81bICBkprzaYQBpGo32Rc5i6FbQYa6g1zQ/enH30ArPvIWnFYozDnl3/iNPWIokQMlAS4WCWnPmm5DkfBR8s4HRLal1v92eXf3cRBCQK1oVTgjwn3bAHd8xd+2qRlFQkoT1Vd5yC4G9I22Q90CpzeZG+4jHVMs7heb5X29yKg20Mi2EY9iiO5eq0yiEzHhinwNLVgJ4qkAJbak3xo3dnHz/fPnibaidijKfKW6JaCkSwIAPFWg5myZmXNJ75YfC8Q94ElvRsuueK5a2vBVuSCMaAIxU1zGPXHbzmAtvbRVEbYKKQG6xKF1nnfQWduUNmgoqmaPyQ2N3/ujqJoXiiccRblNKgiEgTaZAmiihW0p3PH7ocKqm1AhP1T3yrsrtafZYcDzRpY2XO3nylmj6WDjueMkXGOKsndhgdiEHWaS6RELomPupM2IZ96AdQI6QAMOkxu3RzvnBHY/Z8HbWQ7u898NHFrX8ldpniDrniAdV7AYqwqQCfijkp5TBTotqoW1+ki8aGZdw4RBG0rwMMENGNjdLdI4vbefl+u7SDl+/jpft49WF74Eaz/9dQMWpDeOvmQ33hVD32cu1/cQKbm1uulO6S2nwaNUfIKBjjFhli16/tySbEICFezeKjzkJq7e6fkWq7ZjnSY7xyq1260y5vW77nr9N93yfdpijxTcWDowPLsy1m3JGb5UulTAklucO3cRNRc9NAHEPDakkyFG8WYdjVoudYPGW7OCeK2hWvXurFGfRlTdRPaA/4IX7sWTpH04+P//DN0fEvVu0JskAOMgJrfVe4kMOsXFFBJ0ivfk/vtk9QMl6krlrsCjiFHqGo6QeCklM9VcbzpNyAopJWSZXClqzYqh+DCsnWBNqXFx7C3iUkOUiwGUCgvLXYTQZ00HcjhkMuhsQYIiF72Df/K41sFXaVJo/Rxz47PuIsPX0iNdeSblLRTQBj7OqcLO7M990hj91q9t/OB+9xkWwRZeiiQ01ch2TRtlOmRqo08+K3FGRaVKuDUjm8rfBZ1NhYB0ppSMYuQ+vM0hfn1yGDcoI2SV9PjYQweH3QVj/zp2gcdJw0PwtLIeuKXQEUNcZpZJ1qr6N4BCDkK9I7yKv7ubsf0gUAalDcqZHKA/sokXnxA8FVMR6mYNyH6D0pVBxrBKi+B6YLz59sCNhPfRtShLHOobhNBOqbqFCfxxGMa6vdNkF9ynud7VM1mdWGKJeomRDADJuLdTlZMaIKGioiHYOiqg2nWgwpmF8RSpOKpiXl8x2iskOhbnPlHh9UbvIgVKIk4ZihcDR3xdSV3x+KljPf6k4Dwzph6+38YSkgiGtrI7T6EIRidK+gaCPWCUWN+sTOYPq7lGz0/rYzKqPjOgBa9O14kn/o3ame9pWvStkDRiJSEh2qi5H66DoZzs/p22elH66i39dlHH6EDl0EDJqXitvLQZuIrhojaw32QXpDtbiszB2kRkAk1IZ0UzB9odApkWB8mCeFUTG8pRpC6yjhQ7ppCIrUkLxI/NyaarWR+tCZ2hYNVJemDFnkaq4z6GyvbL8PBlP+YwoUtrWWCyMNmEJ5SyjsoKBixEb4XAq4vXbqFAxHRzlQoDa9IBjXJhL1k5KJxFpr0iHaFUVRnAiEWQJYj2odhkSH3HdCwp1uQpuRgQnYdMjyC9WI5wEX+1Ci7D9DyXLnLiiJxYpYSwDiWLQi4mKQXjhGPpiWrorg1HVgE4WbnDgJRzVWKRHYtkea69ZulnICmoCIrMn2z82vLuwDmrrZ5nKsa4Wb0BCQenCcaG0Sft2bVhMxuIToD8lRlT6RSQ0TCKcR1DYzkGjTRkpiqNg88ogaaarRMZCy+w/IyjK08mSCYP50JVgSXl6CsYDQSIfiCFJN3CtR+9q4S62VSRfOO/cZ3/j65VmWKaXY+g2FrMkPzM3/9Ge/+PBHPnX/9vt1c4SZS29c63oIkKXa7goVrC39gpchPTwCDN3Bhmr/p/5xEYPdAVTrpZz+2GeaW7bkih698I86r3nD5IsuFKE9b7sk/e63aHRSmEsNdfQnKdN2kebTnkbrN+o1090fft/u3qUaTREOt/OhYpWvTfOP4ySOY62U0joU99j4+Bsueu0LX3jBs551we23b41bE95FCKx1wgUR6Shyjtxaq0gppQAwswBaK2YBoLRmtszV0qyUdjNnALiPWGvdW71orPWhjFbeHpmrlmalvMjY+h/LpV+pYkaCm7fYzCQCQLqlGh2jImEoHVXdwYpc16ajrZEUQxKjePJv3q+3bBQgu/U23vkQFJGVvnsf9VeI4Dq5RIDV1dUbrv+NZQawZs3kqaee0uv1ZqbX/Pu/feJpZz03X10AUoCAhJpjTg05z7k356cYNkbt6oqFa6duI4q5uwgkgLboAm09MsLWAlBa2ZUVoAtEoNg6ANkF5PmKl1lzzN+/5QVxBdW4jTgBCFkqZgUQIKH2GNKemB4goAQiQAbVonYHnAMixpIRZohJbZqxce08ttj9CrK0IGCQFmFQrEZGQUCeyuJcfmBeza2zBnb/Y5IeQBxTFLsLL4006hu15FM9Iq31I4/uOfeZFwApEAH529/xN//84fdZa88447TNm9dtWDd7/vPPB+juu7df8eVvREnTZOmRRx7+hoteRURZZt//oU+cc87ZZ5/zdEX0/R/89J57tv3lW9562hNPAfDbW2778leuunvr73R7QoTtysKpp5/xqle84LjHHxMnjYd37r72f2787ne+Nz+2YeR5LzU5sDS3+u3LwUbStPnsF6tjT9BA9wffsDsfEOHo6C2t857PlrN9j+Xf+oLe9PjkzGfoY0/A9Fpe7coDd5lrf5bfdSs1G47SD0OsHA5BYshaxxkRMTnSXvK0c1tPPRdr1sjCQnrdL9Jrfwql9cbD2+e/VE+uk0wR0HnZa2Thub1f/Dy/925qtCgczEDxWopn3SNqrgcaL3npq9x8iB07HuiMb04aM82RDVE02RlbNz8/LyLMfNoZ57z3Hz/s3vbLX10DtJORzUDnvOe8SIqvzsQRn/zU59zzX//P9XfdebcEX6srq697/cXABGjyJS97bZZlUv+6+gc/VutOWfM/MvNbWXOdqKPPhppB+8ixr+1ac7PM3CmtN34SmAbG2hd/cu3dMrtNRt75pej0F0z/anHmJpm5XaZvk8kbZc3NMnO9abzs3cAEjRwz8/Vts7+R6ZtFbXnW6Pu+s/YWmb5Zkj/6P8AojR4z9v6rZm+S9bfK7C0ye7OsvUUm/+Vqah4enXrhujtk3TWy9pd29ld23c2y6T5pXfA2qMPV5Clq/GQ1/gdq/A9o/BQVlM6CPizHG7J2eeGxLN3fW9lvzMETjt8yMjLCzES0sLDYXV02xhhjFhYWSx3P89wYY3KzvLzMNl9eXjTGdFe7f/jUJx93/BYAvW4XgLXcajW/8PlPnfPMZ5JufvLjH4rjOE3T7ffef/31N84fPAjgC//xTd5zp73uWnPA2B5Hxz8RfFAfdbyaWGt39bJHDD3+NChB1Im2nJHvNvkjNv3xVbx3j9GjvAresa93xwPRImMR6SK1Lnlf/AfPkO6iNcpmsCmERYxIBuTO3FdH3vax5nNeKAvIFyGPLlAPsojkWec1//y9snhAFsAZO96OnTf5fnCa1sacoBzIKv1j2tyqMjY+9md/9prcMCk9Oz1xySVvdu/au3ff/dvv7HReGkURAK3KqiQD4l80GmBNKooi5yhv/M1v3/V3796569Hzzjvvg//0940kiZPk79916UMPbp+ennKK/0fPe/mOe29ev/mkC5537re/8yOAVm/4SfvkpymD6AlPy7770ej4M1QS2WWLVa0OO4kmNxARNpwgJqL5ed75AO/f1fv8Zfae68zNvxBje4c/rvE3X6DNW2KrkrNflN/2I8mEUrf1nHAunIMFvDivjzmrddYF/Jjhlf1LH/tLu+22+HGnNC75kOptaj3vtXzjLw9c9OzRv/t8tG6zCBYvezs/cAfPL1GjBcu1uU0DHV1eQ621s9PTX/zi5wYj9L/92/cw95KkEaCaUk2pCIv6igBEcbx3777nP/9lex/bCRrfvu0jvV7vc5/9pIicccZpGzZunp9fmJqajHT0ja995uv/edWV3/7BZ//9MkTriVrm1p/T0t8birDxJMRr9XFnmyUQGnbV6ImR6NiTZWUeyQgb5Ldfz/t3gBq9L/2DXn9kfPpzJW6Yu36a/ejyzps+YpdhxtYCmlNBCiaAWXLYLkBAbqKnnJ+nolTU+/E3efutanJTvv03dPU3mn/yViHgmJPNf3yNl1KegrUw993F22+g9lroqJhBhmJRAuo4yBC+Tp7lgJBS92zb9pGPfOyKy78MkDF5MLlKBoYB+3HnLgz66c9+ufexh5P2LDOLmbnqOz/+5w/NTU5NtlqtPOt+9GP/90MffK/W+olPPPWJTzz1A+9791Xf+d6lb/nbvY/1aOeO7ra74mNOisY3qyf8IaaPIkZ6x//oNYdhbDMdc5rqLbpdqbKbfgIsq00njFzyCX3MGYghCagHtTBv9hu0I0ICKMmJe37khhhIzyWuDZo6DBnlC3nyzDe1nnuJC9I0I1sAj0Jt2AI1ZTNgFWxBcZviUYoi4WpWhktOo/4N0Apxaq3n5g6+730f6HQ6733vu4mU1voz//65Ky7/YmtkU3dlV9mBLcIiNooiq0mYhwLTcRx78pyfIGdIedbR6OjYhz/04cXF+T9/42tPPvlk9+Y/ftmLN27YcO55L8m7e3nrNXT0STZF8uy/hJ7iHObqL+JJL6T1m+MTnkuSmQVwmvJt1yCebL75chzzeNsFHVzOH9kWT0zzxGZOmSJITnA9s6nfEU1ySFbM3LOKe4AhSpfzBWsNtFY5WwWOTMPMHwDn0gP3Coap1CZJugl2QhQNoEpSDNynubm5j3/8MoBnZtZfeumfW2M+8IH3/fgn19537z1+/p6IiBx33JakObG6tBvg8847B4DLN0oEyxr7zHPPOuqYJ+y4byswBiy8/KWvnpiYsMYKZOeuPYD5t09//N8+/ZnTT3/yK1/5kje+4XU60mee+ZRTn3jiDb++mu7+tXnWm2UV0eFPgyDfl5mtv8Lk4fSkC6LJowFlejA77uI9W/XJz1cbH88HLM89lF72x7x/V9fsj17wD82Xvgs9IBdAJANSsAZEJBdOAYJkK/LodslFxVH3Z1/rffWtqnOYpPNojJAagV0WISQt282Vi6qzVTHzsE3SSUVgqMbmhyO/A4tXSnVG10bR+Hve8+4HH3wQpMbGRi+77APMOVF0/333EpEx5uijj/rh96+86PWv/8QnPvXWv7qUrSWlQm6AMWZycvJHP7jqNa+56KlPPeXv3/uBj3zkA3mWKa3uuPPObXf95sIXvfhLl3/lSaef8Zvf3Pi+f7pscWlJ6wjAaGcMaJn7rpNHHtE6siupBeSB32HlYdlxQ9SFXRWzkkUR1D3XAhlGxm0qYhWvdPnAw7BLav2pdMLzZIU5h1gCyDU3IgVYxEAycAog5lt/rizZRSNPekX0lItEKzV7VPNVn47++IMChV4XBMqZUpFM1BNfrI89W01shDV1aD0AmCs0W8QY49alPDcMtbh44K1v+/tvXXlFt9t97h8959Wv+dMvX/H5H//k5wuLS+Njo2maPeMZT3/GM57uPp6lmfJH8OCY0grAsccedfnln/UBmbGkiIj+7l3vn5ya+ddP/MvGTRtf+Scv3bV799jY+OhoRylaWFy87dZbSI/y8gGz7Qac9nykuW5H5q6fA8y7780f3qkm1isrssLm7p8CCT90lywDlvXM8a2/vSHftyM++kw90bBzXXRiRwDmnqGugWNuW+ZVAwK1p83v/qv76+/p089X3U70ik9gZQmNDkVELeipI3sfP5+687L/Ed50gp3rNp78+ugZr1/94qVm7/00MuXRbkdyrEOaBKDRaERRFEXR5OSEQNhy1Jj+9re+9u1vf6fVagH40v/79yec+KRHdu+46PX/Z3VlpdFISmf61a9+I2kkURR1OqMg7TL3KIquuebam266uUJhIm1M/ld//c4ffv+/tmw5iZRywcARRxwxNTXpYtKLL37rvsceU41EILL956oZUavDomXHDaQ6srwrf/AmGo3QaWT79tuHbqJkSh650/7gn3RbMwjrjmycdq6lhr3patVuUStC3AGAeEqSiBsRKCLdVs2IGpEramZXvMn8+r9UQ4EhrVFERAS6/978qvfApIhb2U8+me9fiEZb2tEsVVLW7t0AG4GbOVKs82wZqnXTzbe/453vZuaDB+etZZASFlKNN1/6juuuv8EY0253xiemSI1ceeV/3n3PPX/6mlcf+7ij9u/b/9WvfeO6G26/+be3aS15btLVuTjWzh3fccedb3/72y++5G1nPOnkJInvunv7V776ja2336wba66/7sbjnvCUZ5939plnPvWwzRtyY++5595vXvmdrbfdqhrjbC1FHXvPT/OvvRcUsenZnbcgahEr/M9nzN67rLEy9yDlOaIGJSP5Tz6CR++m487DyBpe3mN++1/53m3xGa+Aju3eeylq2p/8i7Q6QsDCbvubr+e7bhG2/NAtFI2CrbniDXLT1/Wx53BnHeVLsvMWu/VHsryfmqMgLbtuyT9zoXrii+zIWttd5N1bkbQg1YZTIBCiaUJt12ExGbDkYXA9XsBZSqx73aEALeiWUorzVaAHaL8Rlx6BnQcYaAC9j3/iU2+59GIAl1/xldf+6WuABmCKNzd1s8PWgpRYA7uKisBpgVbUGrFsvStilmzRn3Ay5mufJhWzShAgQaPjP64UeksQC9IihlSCqCHZAqCIIjQ60lsCDEEh6cBkwhkBiDuIEo8X91bAhpQSx3htjkLFHqIlLSZFnvqAMulQ1Cjrj1IU6Yqh9uUgvzjResbprbUWxZ4UKm5o3XYRgmV2S7xORkh1hF2NW5hZx9ME0pHuLe8JWsiIKGq0J3PD5fR3Zj8NXsWxakxSMbuYSLGwZa5qaipCe7rI4YoMIm5S0vb7xIstuiCA5ni1pbubsdqeLfBipvaUh4/ZUtTwhBE/pAMEQmvMQ/GuqOnqE/5tQnFLko6nikgwU7r4XzQ4Z1JEjLFVaVCqyMpYG2C+xRxlG45VJ+tTMQQbcPgw39hCiLZWtPCIauXMbZ3mWk3xCAv6VI0tBpEO9iQueZjid66q9mJWJY/Af0SKXdnLsZGo5sJSVaOncrQV+V06qBjWUgPBo7DeI/37PAB9WHxAQAlqikPrlgog3+znMWMF5bc1rc/oGSAD1FkXJaM12IWstm1hfWMdCohyfjJuOdBGqj7/agZcuXscDavYwJfpvUWX5GGRkJldUgCEEE0PjmQMm3P83DGpz3wiGl6Fq1pviNls2rhhdnYSovYfOPjwzt2ko6AAM1BWK+iEUllHVSoq2z+qzX/CgdsUXphI2PhW7inXP499GHmA+odgEMLStN9ZrCh7UDj6tDiBaLpvK6dq8wAJSqSBHKW/CDkAAqDYOzzLikmtETUaCGduDlDGiGplcQLVCNcU7iZMdRbP8OJ+sIdrbccG6qf7YnA6bEjTLqzBU50kbAkjCmdo+1FtAgnvH0nNqUqoMMNmGki4WVFlRgKIajaL3YggLBU9qK/MG9bTK2ERDd2HkcK58RUnoxqGH04+LodSUe3+SV1+nlAT3EjUR3dTQFusl+P7yMdFpjSw+6f3PkJ9ejjMVCjwGME3v/seB3NVw03xyj2aqaqFVuMHKCjADzr2qoRT+XipO4mqfYsg/Z1vYWdsffx5eVSiirclCChNFYej3iLn72dVXC7XnLA1KdiLjwa6biggrwT7/6JGV5S6SIqrUQM+KywnD7YK0GDnRaB/tcKyXyhoOLlH6mTY0B2XB6nbYrFRNCkKZnlIP+4pxchgEZJ6U60U26FXu0wTBqixRIMMDQoCCVWuTsP3WAg5JlRj5UkfFwbDZBoQsKRiBhEO1U/Yb0z1+0nhTjxUbdkrgaBlyIzAwU0koor4UADFxbguCpwTBrY+p77mziJ8x3AviX6vH8xXlpALVXkuqmu1/N4RvFSsg4d+R7Xx0UCLW7htIIVegoJmSPo9zQdcb54tVY6Fgqh5IBAJsejabwcYTjhkd7j0jbDul4KgPhip3lE+TGEpHIob+DTqG1dHNRWrhavVpotU9cnUqW/UvxFksIFoeIaqtiMD9eUl5dYtUlH2MHhSA8MHpT7BfigVdMgkyL5GnrDVbKDbDAObfPaNyK5ferkjUxlj1kZN1OeMhDsblv1d9PtGCFQnqEGNmmORvhWnRjWhMLeh4V3QUhsyQv2WWw9XB/IsGtjIRvpnewX+lyqbpCGGEO5oOOhBq/yoGvgcvFpFuMEUkiEcwXL3NxfZa1CCcKfekkUaFDGoYPdLqbOhUki1MUsxtIV+7/Qu6b+5RXb9+zqjaPBCpJ9I1pcx9l081WL1gUWyv82A6gMX/MDbWgtQsf9YACNoUCN0OFXwGuZclbbVp3kXTbHF/A2H7xAdKjcfQuDvS7toODt3wMUM26NJBhP6+gFlSPJZiIwGXHotdajvqUNDRgX5F/9/slN+LMck3UYAAAAASUVORK5CYII=", style: { width: '100%', height: '100%', display: 'block' } })),
+                React.createElement("div", { style: { minWidth: 0 } },
+                    React.createElement("h1", null, "RupsWallet"),
+                    React.createElement("p", null,
+                        "Hello, ",
+                        user,
+                        " \u00B7 ",
+                        now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })))),
+            React.createElement("div", { className: "acts2" },
+                React.createElement("span", { className: 'syncpill ' + sync, title: { local: 'Saved on this device only', loading: 'Connecting…', synced: 'Synced to cloud', pending: 'Syncing…', offline: 'Offline: will sync when back online', error: 'Sync problem' }[sync] },
+                    React.createElement("i", null),
+                    React.createElement("span", { className: "t" }, { local: 'Local', loading: 'Connecting', synced: 'Synced', pending: 'Syncing', offline: 'Offline', error: 'Error' }[sync])),
+                EMAIL && React.createElement("button", { className: "btn ghost sm", onClick: onSignOut, "aria-label": "Sign out", title: "Sign out of this device" },
+                    React.createElement(Icon, { n: "out", s: 16 })))),
+        React.createElement("nav", { className: "glass tabs", "aria-label": "Main pages", style: { '--i': Math.max(0, TABS.findIndex(x => x[0] === tab)) } }, TABS.map(([k, ic, l]) => React.createElement("button", { key: k, className: 'tab' + (tab === k ? ' active' : ''), onClick: () => setTab(k) },
+            React.createElement(Icon, { n: ic, s: 18 }),
+            l))),
+        tab === 'add' && React.createElement("div", { className: "page", key: "add" },
+            React.createElement("section", { className: "glass panel" },
+                React.createElement("h2", null, editId ? 'Edit expense' : 'Add an expense'),
+                React.createElement("form", { onSubmit: submit },
+                    React.createElement("div", { className: "form-grid" },
+                        React.createElement("div", { className: "field" },
+                            React.createElement("label", { htmlFor: "d" }, "Date"),
+                            React.createElement("input", { id: "d", className: "input", type: "date", required: true, value: form.date, onChange: e => setForm({ ...form, date: e.target.value }) })),
+                        React.createElement("div", { className: "field" },
+                            React.createElement("label", { htmlFor: "ds" }, "What did you spend on?"),
+                            React.createElement("input", { id: "ds", className: "input", maxLength: "100", required: true, placeholder: "e.g. Groceries, petrol, tea", value: form.description, onChange: e => setForm({ ...form, description: e.target.value }) })),
+                        React.createElement("div", { className: "field" },
+                            React.createElement("label", { htmlFor: "c" }, "Category"),
+                            React.createElement("select", { id: "c", className: "select", value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) }, CATEGORIES.map(c => React.createElement("option", { key: c }, c)))),
+                        React.createElement("div", { className: "field" },
+                            React.createElement("label", { htmlFor: "a" }, "Amount (\u20B9)"),
+                            React.createElement("input", { id: "a", className: "input", type: "number", inputMode: "decimal", min: "0.01", step: "0.01", required: true, placeholder: "e.g. 250", value: form.amount, onChange: e => setForm({ ...form, amount: e.target.value }) }))),
+                    React.createElement("div", { className: "row-actions" },
+                        React.createElement("button", { className: "btn primary", type: "submit" },
+                            React.createElement(Icon, { n: editId ? 'edit' : 'plus', s: 17 }),
+                            editId ? 'Save changes' : 'Add expense'),
+                        editId ? React.createElement("button", { className: "btn ghost", type: "button", onClick: cancelEdit }, "Cancel edit") : React.createElement("button", { className: "btn ghost", type: "button", onClick: () => setForm(emptyForm()) }, "Clear form")))),
+            React.createElement("section", { className: "glass panel hover-lift" },
+                React.createElement("div", { className: "topline", style: { margin: 0 } },
+                    React.createElement("div", null,
+                        React.createElement("div", { style: { color: 'var(--muted)', fontSize: 13 } }, "Spent today"),
+                        React.createElement("div", { className: "amt neg", style: { fontSize: 26 } }, money(stats.dS))),
+                    React.createElement("span", { className: "pill" },
+                        expenses.length,
+                        " saved entr",
+                        expenses.length === 1 ? 'y' : 'ies')))),
+        tab === 'list' && React.createElement("div", { className: "page", key: "list" },
+            React.createElement("section", { className: "glass panel" },
+                React.createElement("div", { className: "topline" },
+                    React.createElement("h2", null, "Expense history"),
+                    React.createElement("span", { className: "pill" },
+                        filtered.length,
+                        " entr",
+                        filtered.length === 1 ? 'y' : 'ies')),
+                React.createElement("div", { className: "filters" },
+                    React.createElement("div", { className: "field" },
+                        React.createElement("label", null, "From"),
+                        React.createElement("input", { className: "input", type: "date", value: flt.from, onChange: e => setFlt({ ...flt, from: e.target.value }) })),
+                    React.createElement("div", { className: "field" },
+                        React.createElement("label", null, "To"),
+                        React.createElement("input", { className: "input", type: "date", value: flt.to, onChange: e => setFlt({ ...flt, to: e.target.value }) })),
+                    React.createElement("div", { className: "field" },
+                        React.createElement("label", null, "Category"),
+                        React.createElement("select", { className: "select", value: flt.cat, onChange: e => setFlt({ ...flt, cat: e.target.value }) },
+                            React.createElement("option", { value: "all" }, "All categories"),
+                            CATEGORIES.map(c => React.createElement("option", { key: c }, c)))),
+                    React.createElement("div", { className: "field" },
+                        React.createElement("label", null, "Search"),
+                        React.createElement("input", { className: "input", placeholder: "Search expenses", value: flt.q, onChange: e => setFlt({ ...flt, q: e.target.value }) }))),
+                React.createElement("div", { className: "topline", style: { marginBottom: 0 } },
+                    React.createElement("span", { className: "total-line" },
+                        "Filtered total: ",
+                        money(sum(filtered))),
+                    React.createElement("div", { className: "tools" },
+                        React.createElement("button", { className: "btn ghost sm", onClick: exportCsv },
+                            React.createElement(Icon, { n: "download", s: 15 }),
+                            "CSV"),
+                        React.createElement("button", { className: "btn ghost sm", onClick: backup },
+                            React.createElement(Icon, { n: "download", s: 15 }),
+                            "Backup"),
+                        React.createElement("button", { className: "btn ghost sm", onClick: () => fileRef.current.click() },
+                            React.createElement(Icon, { n: "upload", s: 15 }),
+                            "Restore"),
+                        React.createElement("input", { ref: fileRef, type: "file", accept: ".json,application/json", hidden: true, onChange: restore }))),
+                React.createElement("div", { className: "list" }, filtered.map((x, i) => (React.createElement("div", { className: "item", key: x.id, style: { animationDelay: Math.min(i, 12) * 30 + 'ms' } },
+                    React.createElement("div", { className: "badge", style: { background: `linear-gradient(135deg,${CAT_COLORS[x.category] || '#94a3b8'},${CAT_COLORS[x.category] || '#94a3b8'}99)` } }, x.category[0]),
+                    React.createElement("div", { style: { minWidth: 0 } },
+                        React.createElement("div", { className: "title" }, x.description),
+                        React.createElement("div", { className: "meta" },
+                            x.date,
+                            " \u00B7 ",
+                            x.category,
+                            x.notes ? ' · ' + x.notes : '')),
+                    React.createElement("div", { className: "right" },
+                        React.createElement("div", { className: 'amt' + (isInv(x) ? ' inv' : '') }, money(x.amount)),
+                        React.createElement("div", { className: "acts" },
+                            React.createElement("button", { className: "iconbtn", onClick: () => startEdit(x), "aria-label": "Edit" },
+                                React.createElement(Icon, { n: "edit", s: 15 })),
+                            React.createElement("button", { className: "iconbtn del", onClick: () => delOne(x), "aria-label": "Delete" },
+                                React.createElement(Icon, { n: "trash", s: 15 })))))))),
+                !filtered.length && React.createElement("div", { className: "empty" }, expenses.length ? 'No expenses match these filters.' : 'No expenses recorded yet. Add your first one!'),
+                React.createElement("div", { className: "row-actions" },
+                    React.createElement("button", { className: "btn danger sm", onClick: delAll },
+                        React.createElement(Icon, { n: "trash", s: 15 }),
+                        "Delete all expenses")),
+                React.createElement("div", { className: "note" }, "Entries are saved in this browser on this device. Use \u201CBackup\u201D regularly, especially before clearing browser data or switching devices."))),
+        tab === 'dash' && React.createElement("div", { className: "page", key: "dash" },
+            React.createElement("div", { className: "glass ovbar" },
+                React.createElement("div", { className: "field" },
+                    React.createElement("label", null, "View"),
+                    React.createElement("select", { className: "select", value: ovMode, onChange: e => setOvMode(e.target.value) },
+                        React.createElement("option", { value: "month" }, "Monthly"),
+                        React.createElement("option", { value: "year" }, "Yearly"))),
+                ovMode === 'month' && React.createElement("div", { className: "field" },
+                    React.createElement("label", null, "Month"),
+                    React.createElement("select", { className: "select", value: ovMonth, onChange: e => setOvMonth(Number(e.target.value)) }, FULL_MONTHS.map((m, i) => React.createElement("option", { key: m, value: i }, m)))),
+                React.createElement("div", { className: "field" },
+                    React.createElement("label", null, "Year"),
+                    React.createElement("select", { className: "select", value: ovYear, onChange: e => setOvYear(Number(e.target.value)) }, years.map(y => React.createElement("option", { key: y, value: y }, y))))),
+            React.createElement("div", { key: ovMode + '-' + ovMonth + '-' + ovYear },
+                React.createElement("div", { className: "section-head" },
+                    React.createElement("span", { className: "ic" },
+                        React.createElement(Icon, { n: ovMode === 'month' ? 'cal' : 'trend', s: 20 })),
+                    React.createElement("div", null,
+                        React.createElement("small", null, ovMode === 'month' ? 'MONTHLY OVERVIEW' : 'YEARLY OVERVIEW'),
+                        React.createElement("h2", null, periodLabel))),
+                React.createElement("div", { className: "cards" },
+                    React.createElement(Metric, { label: "Spent", value: React.createElement(Num, { v: ov.S }), cls: "neg", color: "#fb7185", bar: "linear-gradient(90deg,#fb7185,#f43f5e)", sub: `${ov.sp.length} transaction${ov.sp.length === 1 ? '' : 's'} · excl. investments` }),
+                    React.createElement(Metric, { label: "Invested", value: React.createElement(Num, { v: ov.I }), cls: "pos", color: "#34d399", bar: "linear-gradient(90deg,#34d399,#10b981)", delay: 70, sub: `${ov.iv.length} contribution${ov.iv.length === 1 ? '' : 's'}` }),
+                    React.createElement(Metric, { label: "Total outflow", value: React.createElement(Num, { v: ov.S + ov.I }), color: "#818cf8", bar: "linear-gradient(90deg,#818cf8,#38bdf8)", delay: 140, sub: "Spending + investments" }))),
+            React.createElement("div", { className: "cards two" },
+                React.createElement(Metric, { label: "Today\u2019s spending", value: React.createElement(Num, { v: stats.dS }), cls: "neg", bar: "linear-gradient(90deg,#fbbf24,#f59e0b)", sub: `${stats.d.length} transaction${stats.d.length === 1 ? '' : 's'}` }),
+                React.createElement(Metric, { label: "Average monthly spending", value: React.createElement(Num, { v: stats.avg }), cls: "neg", bar: "linear-gradient(90deg,#a78bfa,#818cf8)", delay: 70, sub: `Across ${stats.months} month${stats.months === 1 ? '' : 's'} with expenses` })),
+            React.createElement("section", { className: "glass panel" },
+                React.createElement("h2", null, "Investment vs spending"),
+                React.createElement("div", { className: "compare" },
+                    React.createElement("div", { className: "cbox g" },
+                        React.createElement("div", { className: "t" },
+                            "Invested \u00B7 ",
+                            periodLabel),
+                        React.createElement("div", { className: "v pos" },
+                            React.createElement(Num, { v: ov.I })),
+                        React.createElement("div", { className: "s" }, "Money put toward investments")),
+                    React.createElement("div", { className: "cbox r" },
+                        React.createElement("div", { className: "t" },
+                            "Spent \u00B7 ",
+                            periodLabel),
+                        React.createElement("div", { className: "v neg" },
+                            React.createElement(Num, { v: ov.S })),
+                        React.createElement("div", { className: "s" }, "Excludes investment contributions")),
+                    React.createElement("div", { className: "cbox" },
+                        React.createElement("div", { className: "t" }, "Investment share"),
+                        React.createElement("div", { className: "v" },
+                            React.createElement(Num, { v: ovRatio, fmt: n => n.toFixed(1) + '%' })),
+                        React.createElement("div", { className: "s" }, "of total recorded outflow"),
+                        React.createElement("div", { className: "meter" },
+                            React.createElement("i", { style: { width: ovRatio + '%' } })))),
+                React.createElement("div", { className: "note" }, "Investments are tracked separately and aren\u2019t counted as everyday spending. This shows amounts contributed, not profit or market value.")),
+            React.createElement("section", { className: "glass panel" },
+                React.createElement("div", { className: "topline" },
+                    React.createElement("h2", { style: { margin: 0 } }, "Spending trends"),
+                    React.createElement("span", { className: "pill" }, chartYear)),
+                React.createElement("div", { className: "filters", style: { gridTemplateColumns: 'repeat(2,minmax(0,1fr))' } },
+                    React.createElement("div", { className: "field" },
+                        React.createElement("label", null, "Year"),
+                        React.createElement("select", { className: "select", value: chartYear, onChange: e => setChartYear(Number(e.target.value)) }, years.map(y => React.createElement("option", { key: y }, y)))),
+                    React.createElement("div", { className: "field" },
+                        React.createElement("label", null, "Category month"),
+                        React.createElement("select", { className: "select", value: viewMonth, onChange: e => setViewMonth(e.target.value) },
+                            React.createElement("option", { value: "all" }, "All months"),
+                            FULL_MONTHS.map((m, i) => React.createElement("option", { key: m, value: i }, m))))),
+                React.createElement("div", { className: "charts" },
+                    React.createElement("div", null,
+                        React.createElement("h3", null, "Monthly spending (\u20B9)"),
+                        React.createElement(BarChart, { key: chartYear + '-' + expenses.length, spend: trend.s, invest: trend.i }),
+                        React.createElement("div", { className: "legend" },
+                            React.createElement("span", { style: { '--c': '#818cf8' } }, "Spending"),
+                            React.createElement("span", { style: { '--c': '#34d399' } }, "Investment"))),
+                    React.createElement("div", null,
+                        React.createElement("h3", null, "Spending by category"),
+                        cats.length ? cats.slice(0, 8).map(([n, v]) => React.createElement("div", { className: "catrow", key: n },
+                            React.createElement("div", { className: "name" },
+                                React.createElement("i", { style: { background: CAT_COLORS[n] || '#94a3b8' } }),
+                                n),
+                            React.createElement("div", { className: "track" },
+                                React.createElement("b", { style: { width: v / cats[0][1] * 100 + '%', background: CAT_COLORS[n] || '#94a3b8' } })),
+                            React.createElement("div", { className: "v" }, shortMoney(v)))) : React.createElement("div", { className: "empty" }, "No spending data for this period"),
+                        React.createElement("div", { className: "note" },
+                            money(sum(cats.map(c => ({ amount: c[1] })))),
+                            " spending \u00B7 ",
+                            viewMonth === 'all' ? 'full year' : FULL_MONTHS[viewMonth],
+                            " (investments excluded)"))),
+                React.createElement("div", { className: "note" }, "Average monthly spending uses only months in the current year that have recorded expenses."))),
+        toast && React.createElement("div", { key: toast.k, className: "glass toast" }, toast.m),
+        ask && React.createElement("div", { className: "modal-bg", onClick: () => setAsk(null) },
+            React.createElement("div", { className: "glass modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation() },
+                React.createElement("h3", null, ask.title),
+                React.createElement("p", null, ask.msg),
+                React.createElement("div", { className: "row-actions" },
+                    React.createElement("button", { className: "btn ghost", onClick: () => setAsk(null) }, "Cancel"),
+                    React.createElement("button", { className: "btn primary", onClick: () => { ask.yes(); setAsk(null); } }, "Confirm"))))));
+}
+/* ---------- ROOT ---------- */
+class Boundary extends React.Component {
+    constructor(p) { super(p); this.state = { e: null }; }
+    static getDerivedStateFromError(e) { return { e }; }
+    render() {
+        if (!this.state.e)
+            return this.props.children;
+        return React.createElement("div", { style: { minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 } },
+            React.createElement("div", { className: "glass panel", style: { maxWidth: 420, textAlign: 'center' } },
+                React.createElement("h2", null, "Something went wrong"),
+                React.createElement("p", { style: { color: 'var(--muted)', wordBreak: 'break-word' } }, String(this.state.e && this.state.e.message || this.state.e)),
+                React.createElement("button", { className: "btn primary", onClick: () => location.reload() }, "Reload")));
+    }
+}
+function Root() {
+    useEffect(() => {
+        const move = e => { const g = e.target.closest && e.target.closest('.glass'); if (g) {
+            const r = g.getBoundingClientRect();
+            g.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+            g.style.setProperty('--my', (e.clientY - r.top) + 'px');
+        } };
+        const down = e => {
+            const el = e.target.closest && e.target.closest('.btn,.tab,.signin,.iconbtn');
+            if (!el)
+                return;
+            const r = el.getBoundingClientRect(), s = Math.max(r.width, r.height) * 2, sp = document.createElement('span');
+            sp.className = 'ripple';
+            sp.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - r.left - s / 2}px;top:${e.clientY - r.top - s / 2}px`;
+            el.appendChild(sp);
+            setTimeout(() => sp.remove(), 700);
+        };
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerdown', down);
+        return () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerdown', down); };
+    }, []);
+    const [fbUser, setFbUser] = useState(null);
+    const [ready, setReady] = useState(!CLOUD);
+    const [cloudErr, setCloudErr] = useState('');
+    useEffect(() => {
+        if (!CLOUD)
+            return;
+        const slow = setTimeout(() => { setCloudErr(c => c || 'Connecting to Firebase is taking too long. Check your internet connection and reload.'); setReady(true); }, 10000);
+        let unsub = () => { };
+        try {
+            unsub = fbAuth().onAuthStateChanged(u => {
+                if (u) {
+                    clearTimeout(slow);
+                    setFbUser(u);
+                    setReady(true);
+                }
+                else if (EMAIL) {
+                    setFbUser(null);
+                    setReady(true);
+                }
+                else
+                    fbAuth().signInAnonymously().catch(e => { setCloudErr((e && e.code === 'auth/operation-not-allowed' || e && e.code === 'auth/admin-restricted-operation') ? 'Anonymous sign-in is not enabled. In Firebase console: Authentication > Sign-in method > Anonymous > Enable, then reload.' : 'Could not connect to Firebase (' + ((e && e.code) || 'error') + '). Check your connection and reload.'); clearTimeout(slow); setReady(true); });
+            });
+        }
+        catch (e) {
+            clearTimeout(slow);
+            setCloudErr('Firebase could not start here (' + ((e && e.code) || 'error') + '). Open the page from your Netlify https:// link.');
+            setReady(true);
+        }
+        return () => { clearTimeout(slow); unsub(); };
+    }, []);
+    const [user, setUser] = useState(() => {
+        try {
+            const a = readJSON(AUTH, null);
+            if (a && sessionStorage.getItem(SESSION) === '1')
+                return a.user;
+        }
+        catch (e) { }
+        return null;
+    });
+    const lock = () => { try {
+        sessionStorage.removeItem(SESSION);
+    }
+    catch (e) { } setUser(null); };
+    const signOut = () => { try {
+        sessionStorage.removeItem(SESSION);
+        localStorage.removeItem(AUTH);
+    }
+    catch (e) { } if (CLOUD)
+        fbAuth().signOut(); setUser(null); };
+    if (!ready)
+        return null;
+    if (cloudErr)
+        return React.createElement("div", { style: { minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 } },
+            React.createElement("div", { className: "glass panel", style: { maxWidth: 420, textAlign: 'center' } },
+                React.createElement("h2", null, "Cloud sync problem"),
+                React.createElement("p", { style: { color: 'var(--muted)' } }, cloudErr)));
+    return (user && (!CLOUD || fbUser)) ? React.createElement(Boundary, null,
+        React.createElement(App, { key: fbUser ? fbUser.uid : 'local', user: user, userId: fbUser && fbUser.uid, onLock: lock, onSignOut: signOut })) : React.createElement(LockScreen, { onUnlock: setUser, fbUser: fbUser });
+}
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Root, null));
+
+</script>
+<script>if('serviceWorker' in navigator&&/^https:$/.test(location.protocol)){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+</body>
+</html>
