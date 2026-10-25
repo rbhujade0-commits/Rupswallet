@@ -29,8 +29,32 @@ jobs:
       - name: Copy web app into the APK
         run: |
           mkdir -p android/app/src/main/assets/www
-          cp index.html manifest.webmanifest android/app/src/main/assets/www/
-          cp -r icons android/app/src/main/assets/www/
+          cp index.html android/app/src/main/assets/www/
+          cp manifest.webmanifest android/app/src/main/assets/www/ || true
+          cp -r icons android/app/src/main/assets/www/ || true
+
+      - name: Launcher icon
+        run: |
+          R=android/app/src/main/res
+          mkdir -p "$R/drawable-nodpi"
+          # Easy path for phone uploads: put ic_launcher_foreground.png in the repo root
+          if [ -f ic_launcher_foreground.png ]; then
+            cp ic_launcher_foreground.png "$R/drawable-nodpi/ic_launcher_foreground.png"
+            echo "Used icon from repo root"
+          fi
+          if [ ! -f "$R/drawable-nodpi/ic_launcher_foreground.png" ]; then
+            mkdir -p "$R/drawable"
+            cat > "$R/drawable/ic_launcher_foreground.xml" <<'XML'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#1E90FF" android:pathData="M30,34h48a6,6 0 0 1 6,6v30a6,6 0 0 1 -6,6h-48a6,6 0 0 1 -6,-6v-30a6,6 0 0 1 6,-6z"/>
+              <path android:fillColor="#34D399" android:pathData="M32,28h40v6h-40z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M70,52a5,5 0 1 0 0.01,0z"/>
+          </vector>
+          XML
+            echo "Used fallback icon"
+          fi
 
       - name: Bundle libraries so the app also opens offline
         working-directory: android/app/src/main/assets/www
