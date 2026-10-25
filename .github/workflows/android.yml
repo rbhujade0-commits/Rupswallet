@@ -26,22 +26,70 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Find the Android project (works even if folders were uploaded flat)
+      - name: Prepare the Android project (works with flat phone uploads)
         run: |
-          echo "--- repo files ---"; ls -la; echo "--- android/ ---"; ls -la android 2>/dev/null || true
+          echo "--- repo files ---"; ls -la
           if [ -f android/settings.gradle ] && [ -d android/app ]; then
             D=android
-          elif [ -f settings.gradle ] && [ -d app ]; then
-            D=.
-          elif [ -f settings.gradle ] && [ -d android/app ]; then
-            cp settings.gradle android/settings.gradle
-            [ -f build.gradle ] && cp build.gradle android/build.gradle
-            [ -f gradle.properties ] && cp gradle.properties android/gradle.properties
-            D=android
           else
-            echo "ERROR: could not find the Android project (settings.gradle + app folder)."
-            find . -maxdepth 4 -not -path "./.git/*" | head -100
-            exit 1
+            D=android_build
+            M=$D/app/src/main
+            mkdir -p $M/java/com/rupswallet/app $M/res/values $M/res/mipmap-anydpi $M/res/drawable-nodpi $M/assets/www
+            for f in settings.gradle gradle.properties AndroidManifest.xml MainActivity.java styles.xml ic_launcher.xml; do
+              if [ ! -f "$f" ]; then echo "ERROR: $f is missing from the repo"; exit 1; fi
+            done
+            cp settings.gradle gradle.properties $D/
+            cp AndroidManifest.xml $M/
+            cp MainActivity.java $M/java/com/rupswallet/app/
+            cp styles.xml $M/res/values/
+            cp ic_launcher.xml $M/res/mipmap-anydpi/
+            cat > $D/build.gradle <<'GRADLE_ROOT'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          GRADLE_ROOT
+            cat > $D/app/build.gradle <<'GRADLE_APP'
+          plugins {
+              id 'com.android.application'
+          }
+          def ks = System.getenv("KEYSTORE_FILE")
+          android {
+              namespace 'com.rupswallet.app'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.rupswallet.app"
+                  minSdk 29
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              signingConfigs {
+                  if (ks) {
+                      release {
+                          storeFile file(ks)
+                          storePassword System.getenv("KEYSTORE_PASSWORD")
+                          keyAlias System.getenv("KEY_ALIAS")
+                          keyPassword System.getenv("KEY_PASSWORD")
+                      }
+                  }
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      if (ks) { signingConfig signingConfigs.release }
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'androidx.webkit:webkit:1.11.0'
+              implementation 'androidx.biometric:biometric:1.1.0'
+          }
+          GRADLE_APP
           fi
           echo "Android project folder: $D"
           echo "ANDROID_DIR=$D" >> "$GITHUB_ENV"
